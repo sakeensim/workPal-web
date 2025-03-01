@@ -3,6 +3,14 @@ import { Route, Routes } from 'react-router'
 import Layout from '../layouts/Layout'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
+import { Outlet } from 'react-router'
+import Profile from '../userPage/Profile'
+import CheckIn from '../userPage/CheckIn'
+import CheckOut from '../userPage/CheckOut'
+import DayOff from '../userPage/DayOff'
+import AdvanceSalary from '../userPage/AdvanceSalary'
+import Approved from '../adminPage/Approved'
+
 
 function AppRoutes() {
     return (
@@ -16,16 +24,16 @@ function AppRoutes() {
 
                 {/* Private [USER]*/}
                 <Route path='user' element={<Layout />}>
-                    <Route index element={<h1>Profile</h1>} />
-                    <Route path='check-in' element={<h1>Check-in</h1>} />
-                    <Route path='check-out' element={<h1>Check-out</h1>} />
-                    <Route path='day-off' element={<h1>Day-0ff</h1>} />
-                    <Route path='advancd-salary' element={<h1>Advance- Salary</h1>} />
+                    <Route index element={<Profile/>} />
+                    <Route path='check-in' element={<CheckIn />} />
+                    <Route path='check-out' element={<CheckOut/>} />
+                    <Route path='day-off' element={<DayOff/>} />
+                    <Route path='advancd-salary' element={<AdvanceSalary/>} />
                 </Route>
 
                 {/* Private [ADMIN] */}
                 <Route path='admin' element={<Layout />}>
-                <Route path='approved' element={<h1>Approved</h1>} />
+                <Route path='approved' element={<Approved />} />
                 </Route>
 
             </Routes>

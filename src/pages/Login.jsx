@@ -1,43 +1,44 @@
 import axios from 'axios'
 import React, { useState } from 'react'
 import { createAlert } from '../utils/createAlert'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
+import  useAuthStore  from '../store/auth-store'
 
 function Login() {
     //Code
-    
+const loginWithZustand = useAuthStore(state => state.loginWithZustand)
+
+    const navigate = useNavigate()
     //เก็บค่าที่userกรอกเข้ามา โดยให้ค่าเริ่มต้นเป็นค่าว่าง
     const [value, setValue]= useState({
-        firstname: '',
-        lastname: '',
-        phonenumber: '',
         email: '',
         password: '',
-        confirmpassword: ''
     })
     const hdlOnchange = (e) =>{
         // console.log(e.target.value)
         setValue({...value, [e.target.name]: e.target.value})
     }
-    const hdlSubmit = async(e)=>{
+    const hdlSubmit = async(e) => {
         e.preventDefault()
-        try {
-            //connect to backend
-            const res = await axios.post('http://localhost:9191/login', value)
-            
-            console.log(res.data.payload.role)
-            const role = res.data.payload.role
 
-            createAlert('success', 'Login Success')
-            
+            const res =await loginWithZustand(value)
             console.log(res)
-        } catch (error) {
-           
-            createAlert('error', error.response.data.message)
-            console.log(error.response.data.message)
-        }
-    }
+            if(res.success){
+                roleDirect(res.role)
+                createAlert('success', 'Login Success')            
+            }else{
+                createAlert('error', res.message)
+            }
+}
 
+    const roleDirect = (role) => {
+        if(role === 'USER'){
+            navigate('/user')
+        }else if(role === 'ADMIN'){
+            navigate('/admin')
+        }
+        console.log(role)
+    }
     return (
         <>
             <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>
@@ -79,7 +80,7 @@ function Login() {
                             <p className='text-xl text-white flex justify-center mt-2'>Log-in</p>
                         </div> */}
                     <button className="border-white w-74 h-12 rounded-2xl bg-blue-700 mt-3 text-xl text-white">
-                        Sign-up
+                        Log-in
                     </button>
                     
                     </div>
