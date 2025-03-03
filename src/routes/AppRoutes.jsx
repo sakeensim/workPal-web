@@ -24,7 +24,7 @@ function AppRoutes() {
 
 
                 {/* Private [USER]*/}
-                <Route path='user' element={<Layout />}>
+                <Route path='user' element={<ProtectRoutes el={<Layout />} allows={['ADMIN','USER']} />}>
                     <Route index element={<Profile />} />
                     <Route path='check-in' element={<CheckIn />} />
                     <Route path='check-out' element={<CheckOut />} />

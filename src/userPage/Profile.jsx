@@ -1,20 +1,74 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import FormUploadImage from '../form/FormUploadImage'
+import { useForm } from 'react-hook-form'
+import useAuthStore from '../store/auth-store'
+import axios from 'axios'
 
 function Profile() {
-  
+      const token = useAuthStore((state)=>state.token)
+      const user = useAuthStore((state)=>state.user)
+
+      const [image,setImage]= useState('')
+      const[profile,setProfile] = useState({})
+
+
+      const {register,handleSubmit,setValue}= useForm()
+      useEffect(()=>{
+        getProfile()
+      },[])
+      const hdlSubmit= async (value)=>{
+        console.log(value)
+        //send to backend
+        try {
+          const res = await axios.patch('http://localhost:9191/user/update-profile/'+user.id, value,
+            {
+               headers:{
+                   Authorization: `Bearer ${token}`
+               }
+           })
+            console.log(res)
+            getProfile()
+        } catch (error) {
+          console.log(error)
+        }
+      }
+
+      const getProfile = async() =>{
+        try {
+          const res = await axios.get('http://localhost:9191/user/myProfile', {
+            headers:{
+              Authorization: `Bearer ${token}`
+          }
+          })
+          setProfile(res.data.result)
+          console.log(res)
+        } catch (error) {
+          console.log(error)
+        }
+      }
+      console.log(profile)
   return (
     <>
+    <form onSubmit={handleSubmit(hdlSubmit)}>
+
     <div className='flex flex-col ml-60'>Profile
     <div className='flex '>
-    <div className='border w-60 h-70 ml-30  bg-gray-300 rounded-2xl border-gray-300'>Image</div>
+    <div className='border w-60 h-70 ml-30  bg-gray-300 rounded-2xl border-gray-300'>
+      <FormUploadImage setValue={setValue} setImage={setImage}/>
+      <img src={image.secure_url || user.profile} className='w-55 h-60'/>
+    </div>
+
 
     <div className='ml-30'>
-      <p className='text-xl text-white mb-3'>Name :</p>
-      <p className='text-xl text-white mb-3'>Phone Number :</p>
-      <p className='text-xl text-white mb-3'>Email Address :</p>
-      <p className='text-xl text-white mb-3'>Emergency Contact :</p>
-      <p className='text-xl text-white mb-3'>ตำแหน่ง :</p>
-
+      <p className='text-xl text-white mb-3'>Name : {user.firstname}</p>
+      <p className='text-xl text-white mb-3'>Phone Number:
+         <input {...register("phone")} defaultValue={profile.phone}/>
+         </p>
+      <p className='text-xl text-white mb-3'>Email Address : {user.email}</p>
+      <p className='text-xl text-white mb-3'>Emergency Contact :
+      <input {...register("emergencyContact")} defaultValue={profile.emergencyContact}
+/>
+      </p>
 
     </div>
     </div>
@@ -35,7 +89,9 @@ function Profile() {
       <p className='flex justify-center mt-10 mb-2'>4000 บาท</p>
     </div>
     </div>
+    <button className=''>Upload</button>
     </div>
+    </form>
     </>
   )
 }

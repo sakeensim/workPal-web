@@ -17,7 +17,7 @@ function ProtectRoutes({ el,allows }) {
           Authorization: `Bearer ${token}`
         }
       })
-console.log(res)
+      
 
       const role = res.data.result.role
       if(allows.includes(role)){

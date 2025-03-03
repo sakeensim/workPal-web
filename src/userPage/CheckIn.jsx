@@ -1,9 +1,26 @@
 import React from 'react'
 import { Link } from 'react-router'
+import moment from 'moment/min/moment-with-locales'
+import axios from 'axios'
 
 function CheckIn() {
+
+    const hdlSubmit =async () =>{
+        try {
+            const res = await axios.post('http://localhost:9191/user/check-in',+user.id, value,
+                {
+                   headers:{
+                       Authorization: `Bearer ${token}`
+                   }
+               })
+                console.log(res)
+        } catch (error) {
+            console.log(error)
+        }
+    }
   return (
     <>
+    <form onSubmit={hdlSubmit}>
     <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>
         <div className="flex mt-80 border-amber-50 w-140 h-140 text-5xl text-white leading-relaxed ml-40">
             "Your work, your way, your success story."
@@ -25,16 +42,18 @@ function CheckIn() {
             <div className="flex flex-col gap-5 mt-10">
     
             <input 
+            disabled
             placeholder='วันที่'
-            // type = 'text'
-            // name = 'email'
+            type = 'text'
+            defaultValue={moment(new Date()).locale("th").format("dddd ll")}
             className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
    
             />
             <input 
+            disabled
             placeholder='เวลา'
-            // type = 'text'
-            // name = 'password'
+            type = 'text'
+            defaultValue={moment(new Date()).locale("th").format("LTS")}
             className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
       
             />
@@ -49,6 +68,7 @@ function CheckIn() {
 
 
     </div>
+    </form>
 </>
   )
 }

@@ -1,3 +1,4 @@
+import moment from 'moment/min/moment-with-locales'
 import React from 'react'
 import { Link } from 'react-router'
 
@@ -26,19 +27,21 @@ function CheckOut() {
             <div className="flex flex-col gap-5 mt-10">
     
             <input 
-            placeholder='วันที่'
-            // type = 'text'
-            // name = 'email'
-            className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
-   
-            />
-            <input 
-            placeholder='เวลา'
-            // type = 'text'
-            // name = 'password'
-            className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
-      
-            />
+                       disabled
+                       placeholder='วันที่'
+                       type = 'text'
+                       defaultValue={moment(new Date()).locale("th").format("dddd ll")}
+                       className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
+              
+                       />
+                       <input 
+                       disabled
+                       placeholder='เวลา'
+                       type = 'text'
+                       defaultValue={moment(new Date()).locale("th").format("LTS")}
+                       className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
+                 
+                       />
 
             <button className="border-white w-74 h-12 rounded-2xl bg-blue-700 mt-3 text-xl text-white">
                 Check-Out
