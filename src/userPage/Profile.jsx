@@ -1,6 +1,7 @@
 import React from 'react'
 
 function Profile() {
+  
   return (
     <>
     <div className='flex flex-col ml-60'>Profile

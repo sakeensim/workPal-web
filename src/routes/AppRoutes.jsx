@@ -19,22 +19,22 @@ function AppRoutes() {
             <Routes>
                 {/* Public */}
 
-                <Route path='/' element={<Login/>} />
-                <Route path='register' element={<Register/>} />
+                <Route path='/' element={<Login />} />
+                <Route path='register' element={<Register />} />
 
 
                 {/* Private [USER]*/}
                 <Route path='user' element={<Layout />}>
-                    <Route index element={<Profile/>} />
+                    <Route index element={<Profile />} />
                     <Route path='check-in' element={<CheckIn />} />
-                    <Route path='check-out' element={<CheckOut/>} />
-                    <Route path='day-off' element={<DayOff/>} />
-                    <Route path='advancd-salary' element={<AdvanceSalary/>} />
+                    <Route path='check-out' element={<CheckOut />} />
+                    <Route path='day-off' element={<DayOff />} />
+                    <Route path='advancd-salary' element={<AdvanceSalary />} />
                 </Route>
 
                 {/* Private [ADMIN] */}
-                <Route path='admin' element={<ProtectRoutes el={<Layout/>}/>}>
-                <Route path='approved' element={<Approved />} />
+                <Route path='admin' element={<ProtectRoutes el={<Layout />} allows={['ADMIN']} />}>
+                    <Route path='approved' element={<ProtectRoutes el={<Approved />} allows={['ADMIN']} />} />
                 </Route>
 
             </Routes>
