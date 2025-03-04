@@ -14,7 +14,7 @@ function FormUploadImage({setValue,setImage}) {
             const resizedImage = await resizeFile(file)
             console.log(resizedImage)
 
-            const res =await uploadImgProfile(token, resizedImage)
+            const res = await uploadImgProfile(token, resizedImage)
             console.log(res)
             setValue('image',res.data.result)
             setImage(res.data.result)

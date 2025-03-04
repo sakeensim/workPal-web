@@ -1,8 +1,23 @@
 import moment from 'moment/min/moment-with-locales'
 import React from 'react'
 import { Link } from 'react-router'
+import useAuthStore from '../store/auth-store'
+import timeStore from '../store/time-store'
 
 function CheckOut() {
+    const token = useAuthStore((state)=>state.token)
+    const {time,actionCheckOut} = timeStore()
+
+    const hdlSubmit = async(e) =>{
+        e.preventDefault()
+        try {
+            actionCheckOut(time.id,token)
+
+    
+        } catch (error) {
+            console.log(error)
+        }
+    }
   return (
     <>
     <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>
@@ -23,7 +38,7 @@ function CheckOut() {
                 </div>
             </div>
             {/* input */}
-            <form>
+            <form onSubmit={hdlSubmit}>
             <div className="flex flex-col gap-5 mt-10">
     
             <input 

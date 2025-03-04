@@ -12,10 +12,17 @@ function Profile() {
       const[profile,setProfile] = useState({})
 
 
-      const {register,handleSubmit,setValue}= useForm()
+      const {register,handleSubmit,setValue}= useForm({
+        values: {
+          phone: profile?.phone,
+          emergencyContact :profile?.emergencyContact
+        }
+      })
+
       useEffect(()=>{
         getProfile()
       },[])
+
       const hdlSubmit= async (value)=>{
         console.log(value)
         //send to backend
@@ -46,7 +53,7 @@ function Profile() {
           console.log(error)
         }
       }
-      console.log(profile)
+      console.log("99999999000000",profile)
   return (
     <>
     <form onSubmit={handleSubmit(hdlSubmit)}>
@@ -62,12 +69,11 @@ function Profile() {
     <div className='ml-30'>
       <p className='text-xl text-white mb-3'>Name : {user.firstname}</p>
       <p className='text-xl text-white mb-3'>Phone Number:
-         <input {...register("phone")} defaultValue={profile.phone}/>
+         <input {...register("phone")} />
          </p>
       <p className='text-xl text-white mb-3'>Email Address : {user.email}</p>
       <p className='text-xl text-white mb-3'>Emergency Contact :
-      <input {...register("emergencyContact")} defaultValue={profile.emergencyContact}
-/>
+      <input {...register("emergencyContact")}/>
       </p>
 
     </div>
