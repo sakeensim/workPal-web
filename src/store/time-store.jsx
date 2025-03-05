@@ -4,6 +4,7 @@ import {create} from 'zustand'
 
 const timeStore= create((set)=> ({
     time: {},
+    date:{},
 
     actionCheckIn: async(token) =>{
         const res = await axios.post('http://localhost:9191/user/check-in',null,
@@ -25,6 +26,19 @@ const timeStore= create((set)=> ({
                 })
             console.log(res)
            set({time: res.data.data})
+    },
+    actionDayoff: async(token)=>{
+        const res = await axios.post('http://lcalhost:9191/user/day-off',null,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                
+            }, 
+
+            console.log("log from day off time store",res)   
+            
+        )
     }
 }))
 

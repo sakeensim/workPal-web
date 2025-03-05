@@ -1,6 +1,25 @@
-import React from 'react'
+import React, { useState } from 'react'
+import actionDayOff from "../store/time-store"
+
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
 
 function DayOff() {
+  const [selected, setSelected] = useState()
+  const [reason, setReason] =useState('')
+  const [status, setStatus] = useState('PENDING')
+
+
+  const hdlSubmit = async(e)=>{
+    e.preventDefault()
+    try {
+      const res = await actionDayOff(token)
+
+      console.log(res)
+    } catch (error) {
+      console.log(error)
+    }
+  }
   return (
     <>
     <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>
@@ -15,7 +34,13 @@ function DayOff() {
             {/* input */}
             <form>
             <div className="flex flex-col gap-5 mt-10">
-    
+     
+            <DayPicker
+      mode="single"
+      selected={selected}
+      onSelect={setSelected}
+    />
+
             <input 
             placeholder='เหตุผล'
             // type = 'text'
