@@ -47,7 +47,7 @@ function Sidebar() {
       </li>
       <li>
         <Link
-          to="/admin/approved"
+          to="/admin"
           className="block py-2 px-4 hover:bg-blue-600 hover:text-white"
         >
           Approved

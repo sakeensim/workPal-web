@@ -1,23 +1,56 @@
 import moment from 'moment/min/moment-with-locales'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import useAuthStore from '../store/auth-store'
 import timeStore from '../store/time-store'
+import axios from 'axios'
 
 function CheckOut() {
     const token = useAuthStore((state)=>state.token)
     const {time,actionCheckOut} = timeStore()
+    const [isAllowed, setIsAllowed] = useState(false)
 
-    const hdlSubmit = async(e) =>{
-        e.preventDefault()
+    useEffect(() => {
+            checkNetwork();
+        }, []);
+    const checkNetwork = async () => {
         try {
-            actionCheckOut(time.id,token)
+            
+            // const res = await axios.get('https://ipapi.co/json/');
+            const res = await axios.get('https://ipwhois.app/json/');
+            
+            const userIP = res.data.ip;
+            console.log(res.data)
 
-    
+            const allowedIPs = ['125.25.50.158']; // Replace with your office Wi-Fi IPs
+
+            if (allowedIPs.includes(userIP)) {
+                setIsAllowed(true);
+            } else {
+                setIsAllowed(false);
+            }
         } catch (error) {
-            console.log(error)
+            console.error("Error fetching IP:", error);
+            setIsAllowed(false);
         }
-    }
+    };
+    const hdlSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!isAllowed) {
+            alert("You must be on the company Wi-Fi to check out!");
+            return;
+        }
+
+
+        try {
+           const res = await actionCheckOut(time.id,token)
+            console.log("CheckOut",res)
+            
+        } catch (error) {
+            console.log("Check-Out",error);
+        }
+    };
   return (
     <>
     <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>

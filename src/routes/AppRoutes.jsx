@@ -34,7 +34,7 @@ function AppRoutes() {
 
                 {/* Private [ADMIN] */}
                 <Route path='admin' element={<ProtectRoutes el={<Layout />} allows={['ADMIN']} />}>
-                    <Route path='approved' element={<ProtectRoutes el={<Approved />} allows={['ADMIN']} />} />
+                    <Route index element={<Approved />} />
                 </Route>
 
             </Routes>

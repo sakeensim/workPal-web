@@ -13,6 +13,7 @@ const timeStore= create((set)=> ({
                     }
                 })
            set({time: res.data.data})
+           console.log("res.data.data",res.data)
     },
     actionCheckOut: async(id,token) =>{
         const res = await axios.patch('http://localhost:9191/user/check-out',
@@ -22,7 +23,7 @@ const timeStore= create((set)=> ({
                         Authorization: `Bearer ${token}`
                     }
                 })
-
+            console.log(res)
            set({time: res.data.data})
     }
 }))

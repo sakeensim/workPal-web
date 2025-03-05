@@ -1,32 +1,66 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import moment from 'moment/min/moment-with-locales'
 import axios from 'axios'
 import useAuthStore from '../store/auth-store'
 import timeStore from '../store/time-store'
 
+
+
 function CheckIn() {
-    const token = useAuthStore((state)=>state.token)
-    const user = useAuthStore((state)=>state.user)
-    const {time,actionCheckIn} = timeStore()
+    const token = useAuthStore((state) => state.token)
+    const { actionCheckIn } = timeStore()
+    const [isAllowed, setIsAllowed] = useState(false)
+
+    useEffect(() => {
+        checkNetwork();
+    }, []);
+
+    const checkNetwork = async () => {
+        try {
+
+            // const res = await axios.get('https://ipapi.co/json/');
+            const res = await axios.get('https://ipwhois.app/json/');
+
+            const userIP = res.data.ip;
+            console.log(res.data)
+
+            const allowedIPs = ['125.25.50.158']; // Replace with your office Wi-Fi IPs
+
+            if (allowedIPs.includes(userIP)) {
+                setIsAllowed(true);
+            } else {
+                setIsAllowed(false);
+            }
+        } catch (error) {
+            console.error("Error fetching IP:", error);
+            setIsAllowed(false);
+        }
+    };
 
     const hdlSubmit = async (e) => {
-        e.preventDefault()
-        try {
-           actionCheckIn(token)
-        } catch (error) {
-            console.log(error)
+        e.preventDefault();
+        if (!isAllowed) {
+            alert("You must be on the company Wi-Fi to check in!");
+            return;
         }
-    }
+        try {
+            console.log("hellooooo")
+            const res = await actionCheckIn(token);
+            console.log(res)
+        } catch (error) {
+            console.log(error);
+        }
+    };
     return (
         <>
 
             <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>
-                <div className="flex mt-80 border-amber-50 w-140 h-140 text-5xl text-white leading-relaxed ml-40">
-                    "Your work, your way, your success story."
+                <div className="flex mt-50 border-amber-50 w-140 h-140 text-6xl text-white leading-relaxed ml-40">
+                    "Work with purpose, live with passion."
                 </div>
 
-                <div className="flex flex-col items-center  border-white w-100 h-140 bg-gray-100 rounded-2xl">
+                <div className="flex flex-col items-center  border-white w-1/4 h-140 bg-gray-100 rounded-2xl">
                     <h3 className='text-3xl text-blue-900  mt-15'>เวลาเข้า-ออกงาน</h3>
                     {/* sign-in sign-up */}
                     <div className="flex mt-6 ml-2">
