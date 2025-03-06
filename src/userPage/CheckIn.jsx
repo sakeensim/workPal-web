@@ -4,6 +4,7 @@ import moment from 'moment/min/moment-with-locales'
 import axios from 'axios'
 import useAuthStore from '../store/auth-store'
 import timeStore from '../store/time-store'
+import { createAlert } from '../utils/createAlert'
 
 
 
@@ -25,13 +26,14 @@ function CheckIn() {
             const userIP = res.data.ip;
             console.log(res.data)
 
-            const allowedIPs = ['125.25.50.158']; // Replace with your office Wi-Fi IPs
+            const allowedIPs = ['125.25.205.8']; // Replace with your office Wi-Fi IPs
 
             if (allowedIPs.includes(userIP)) {
                 setIsAllowed(true);
             } else {
                 setIsAllowed(false);
             }
+            
         } catch (error) {
             console.error("Error fetching IP:", error);
             setIsAllowed(false);
@@ -40,9 +42,11 @@ function CheckIn() {
 
     const hdlSubmit = async (e) => {
         e.preventDefault();
-        if (!isAllowed) {
-            alert("You must be on the company Wi-Fi to check in!");
+        if (isAllowed) {
+            createAlert("success","ลงชื่อเข้า สำเร็จ")
             return;
+        } else if(!isAllowed){
+            alert("info","คุณต้องเชื่อมต่อไวไฟบริษัท!");
         }
         try {
             console.log("hellooooo")

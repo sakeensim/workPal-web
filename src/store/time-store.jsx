@@ -27,18 +27,19 @@ const timeStore= create((set)=> ({
             console.log(res)
            set({time: res.data.data})
     },
-    actionDayoff: async(token)=>{
-        const res = await axios.post('http://lcalhost:9191/user/day-off',null,
+    
+    actionDayOff: async(token, date, reason, status)=>{
+        const res = await axios.post('http://localhost:9191/user/day-off',{ date, reason, status },
             {
                 headers: {
                     Authorization: `Bearer ${token}`
                 },
-                
             }, 
 
-            console.log("log from day off time store",res)   
             
         )
+        console.log("log from day off time store",res)   
+        set({date: res.data.data})
     }
 }))
 

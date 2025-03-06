@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import useAuthStore from '../store/auth-store'
 import timeStore from '../store/time-store'
 import axios from 'axios'
+import { createAlert } from '../utils/createAlert'
 
 function CheckOut() {
     const token = useAuthStore((state)=>state.token)
@@ -22,7 +23,7 @@ function CheckOut() {
             const userIP = res.data.ip;
             console.log(res.data)
 
-            const allowedIPs = ['125.25.50.158']; // Replace with your office Wi-Fi IPs
+            const allowedIPs = ['125.25.205.8']; // Replace with your office Wi-Fi IPs
 
             if (allowedIPs.includes(userIP)) {
                 setIsAllowed(true);
@@ -37,10 +38,12 @@ function CheckOut() {
     const hdlSubmit = async (e) => {
         e.preventDefault();
 
-        if (!isAllowed) {
-            alert("You must be on the company Wi-Fi to check out!");
-            return;
-        }
+       if (isAllowed) {
+                   createAlert("success","ลงชื่อออก สำเร็จ")
+                   return;
+               } else if(!isAllowed){
+                   createAlert("info","คุณต้องเชื่อมต่อไวไฟบริษัท!");
+               }
 
 
         try {
@@ -58,7 +61,7 @@ function CheckOut() {
         "Work with purpose, live with passion."
         </div>
 
-        <div className="flex flex-col items-center  border-white w-100 h-140 bg-gray-100 rounded-2xl">
+        <div className="flex flex-col items-center  border-white w-1/4 h-140 bg-gray-100 rounded-2xl">
             <h3 className='text-3xl text-blue-900  mt-15'>เวลาเข้า-ออกงาน</h3>
             {/* sign-in sign-up */}
             <div className="flex mt-6 ml-2">
