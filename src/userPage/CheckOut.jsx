@@ -23,7 +23,7 @@ function CheckOut() {
             const userIP = res.data.ip;
             console.log(res.data)
 
-            const allowedIPs = ['125.25.205.8']; // Replace with your office Wi-Fi IPs
+            const allowedIPs = ['110.168.210.188']; // Replace with your office Wi-Fi IPs
 
             if (allowedIPs.includes(userIP)) {
                 setIsAllowed(true);

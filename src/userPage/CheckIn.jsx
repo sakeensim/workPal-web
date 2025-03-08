@@ -26,7 +26,7 @@ function CheckIn() {
             const userIP = res.data.ip;
             console.log(res.data)
 
-            const allowedIPs = ['125.25.205.8']; // Replace with your office Wi-Fi IPs
+            const allowedIPs = ['110.168.210.188']; // Replace with your office Wi-Fi IPs
 
             if (allowedIPs.includes(userIP)) {
                 setIsAllowed(true);
@@ -46,7 +46,7 @@ function CheckIn() {
             createAlert("success","ลงชื่อเข้า สำเร็จ")
             return;
         } else if(!isAllowed){
-            alert("info","คุณต้องเชื่อมต่อไวไฟบริษัท!");
+            createAlert("info","คุณต้องเชื่อมต่อไวไฟบริษัท!");
         }
         try {
             console.log("hellooooo")

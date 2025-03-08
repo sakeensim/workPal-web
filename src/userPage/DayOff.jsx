@@ -3,6 +3,7 @@ import useTimeStore from "../store/time-store";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import useAuthStore from "../store/auth-store";
+import { createAlert } from '../utils/createAlert'
 
 function DayOff() {
   const token = useAuthStore((state) => state.token);
@@ -24,10 +25,11 @@ function DayOff() {
       console.error("Please select a date.");
       return;
     }
-
+    createAlert('success','You have booked a day off')
     try {
       const res = await actionDayOff(token, selected, reason, status);
       console.log("Response:", res);
+      
     } catch (error) {
       console.error("Error submitting day off:", error);
     }
