@@ -9,7 +9,7 @@ import CheckIn from '../userPage/CheckIn'
 import CheckOut from '../userPage/CheckOut'
 import DayOff from '../userPage/DayOff'
 import AdvanceSalary from '../userPage/AdvanceSalary'
-import Approved from '../adminPage/Approved'
+import AdminApprovalPage from '../adminPage/AdminApprovalPage'
 import ProtectRoutes from './ProtectRoutes'
 
 
@@ -34,7 +34,7 @@ function AppRoutes() {
 
                 {/* Private [ADMIN] */}
                 <Route path='admin' element={<ProtectRoutes el={<Layout />} allows={['ADMIN']} />}>
-                    <Route index element={<Approved />} />
+                    <Route index element={<AdminApprovalPage />} />
                 </Route>
 
             </Routes>
