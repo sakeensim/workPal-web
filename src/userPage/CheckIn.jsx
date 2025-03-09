@@ -59,7 +59,7 @@ function CheckIn() {
     return (
         <>
 
-            <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>
+            <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 min-h-screen'>
                 <div className="flex mt-50 border-amber-50 w-140 h-140 text-6xl text-white leading-relaxed ml-40">
                     "Work with purpose, live with passion."
                 </div>

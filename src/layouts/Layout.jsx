@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar'
 function Layout() {
   return (
     <>
-    <div className='bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>
+    <div className='bg-gradient-to-t from-blue-800 to-blue-500 min-h-screen'>
        
         <Outlet />
 

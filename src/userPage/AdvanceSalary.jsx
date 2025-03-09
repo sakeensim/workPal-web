@@ -31,7 +31,7 @@ function AdvanceSalary() {
   return (
     <>
     <div className='flex flex-col md:flex-row justify-center md:justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 min-h-screen p-4'>
-        <div className="fhidden md:flex max-w-md text-3xl md:text-4xl lg:text-5xl text-white leading-relaxed mb-6 md:mb-0">
+        <div className="hidden md:flex max-w-md text-3xl md:text-4xl lg:text-5xl text-white leading-relaxed mb-6 md:mb-0 ml-40">
         “Take a break,take a breath, and take care of yourself."
         </div>
 
