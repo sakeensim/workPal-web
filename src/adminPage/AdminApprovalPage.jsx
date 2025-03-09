@@ -63,12 +63,12 @@ function AdminApprovalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">Approval Requests</h1>
+    <div className="min-h-screen bg-gradient-to-t from-blue-800 to-blue-500 p-6">
+      <div className="max-w-7xl mx-auto ml-55">
+        <h1 className="text-3xl font-bold text-white mb-6">Approval Requests</h1>
         
         {loading ? (
-          <div className="flex justify-center items-center h-40">
+          <div className="flex justify-center items-center h-40 ">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         ) : requests.length === 0 ? (
@@ -120,19 +120,21 @@ function AdminApprovalPage() {
                     </div>
                   )}
                   
-                  {request.type === 'dayoff' && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-500 mb-1">Reason</p>
-                      <p className="text-base">{request.reason || 'No reason provided'}</p>
-                      <p className="text-sm font-medium text-gray-500 mt-2 mb-1">Date</p>
-                      <p className="text-base">
-                        {new Date(request.startDate).toLocaleDateString('th-TH')}
-                        {request.endDate && request.endDate !== request.startDate ? 
-                          ` - ${new Date(request.endDate).toLocaleDateString('th-TH')}` : 
-                          ' (1 day)'}
-                      </p>
-                    </div>
-                  )}
+                {request.type === 'dayoff' && (
+                 <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-500 mb-1">Reason</p>
+                    <p className="text-base">{request.reason || 'No reason provided'}</p>
+                    <p className="text-sm font-medium text-gray-500 mt-2 mb-1">Date</p>
+                    <p className="text-base">
+                    {request.startDate ? new Date(request.startDate).toLocaleDateString('th-TH') : 'No date specified'}
+                    {/* Since we're setting endDate equal to startDate for single days, this will just show (1 day) */}
+                    {request.endDate && request.startDate && 
+                        new Date(request.endDate).getTime() !== new Date(request.startDate).getTime() ? 
+                        ` - ${new Date(request.endDate).toLocaleDateString('th-TH')}` : 
+                        ' (1 day)'}
+                    </p>
+                 </div>
+                )}
                   
                   <div className="flex justify-between gap-2 mt-6">
                     <button 
