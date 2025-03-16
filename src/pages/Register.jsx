@@ -1,9 +1,10 @@
 import axios from 'axios'
 import React, { useState } from 'react'
 import { createAlert } from '../utils/createAlert'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 
 function Register() {
+    const navigate = useNavigate();  // Initialize navigate function
 
     //เก็บค่าที่userกรอกเข้ามา โดยให้ค่าเริ่มต้นเป็นค่าว่าง
     const [value, setValue]= useState({
@@ -27,12 +28,25 @@ function Register() {
             createAlert('success', 'Register Success')
             
             console.log(res)
+            // Clear form inputs
+            setValue({
+                firstname: '',
+                lastname: '',
+                phonenumber: '',
+                email: '',
+                password: '',
+                confirmpassword: ''
+            });
+
+            // Redirect to profile page
+            navigate('/user');
         } catch (error) {
            
             createAlert('error', error.response.data.message)
             console.log(error.response.data.message)
         }
     }
+
   return (
   <>
   <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen'>

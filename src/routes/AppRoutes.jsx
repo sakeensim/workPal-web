@@ -3,7 +3,6 @@ import { Route, Routes } from 'react-router'
 import Layout from '../layouts/Layout'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
-import { Outlet } from 'react-router'
 import Profile from '../userPage/Profile'
 import CheckIn from '../userPage/CheckIn'
 import CheckOut from '../userPage/CheckOut'
@@ -11,6 +10,7 @@ import DayOff from '../userPage/DayOff'
 import AdvanceSalary from '../userPage/AdvanceSalary'
 import AdminApprovalPage from '../adminPage/AdminApprovalPage'
 import ProtectRoutes from './ProtectRoutes'
+import Dashboard from '../adminPage/Dashboard'
 
 
 function AppRoutes() {
@@ -35,6 +35,7 @@ function AppRoutes() {
                 {/* Private [ADMIN] */}
                 <Route path='admin' element={<ProtectRoutes el={<Layout />} allows={['ADMIN']} />}>
                     <Route index element={<AdminApprovalPage />} />
+                <Route path= 'Dashboard' element={<Dashboard/>}/>
                 </Route>
 
             </Routes>
