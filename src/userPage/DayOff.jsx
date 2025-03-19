@@ -15,25 +15,35 @@ function DayOff() {
 
   const hdlSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (!token) {
       console.error("No token found! Please log in.");
       return;
     }
-
+  
     if (!selected) {
       console.error("Please select a date.");
       return;
     }
-    createAlert('success','You have booked a day off')
+  
+    // Check if the selected date has already passed
+    const currentDate = new Date();
+    const requestDate = new Date(selected);
+    if (requestDate < currentDate) {
+      createAlert('error', "โปรดเลือกวันที่ในอนาคต!");
+      return;
+    }
+  
+    // Submit the day off request
+    createAlert('success', 'You have booked a day off');
     try {
       const res = await actionDayOff(token, selected, reason, status);
       console.log("Response:", res);
-      
     } catch (error) {
       console.error("Error submitting day off:", error);
     }
   };
+  
 
   return (
     <div className="flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen">

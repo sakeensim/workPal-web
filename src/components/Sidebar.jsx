@@ -1,7 +1,8 @@
 import React from 'react'
 import { Link} from 'react-router'
 import useAuthStore from '../store/auth-store'; // Import your auth store
-import { ApprovedIcon, CheckinIcon, CheckoutIcon, DashboardIcon, DayoffIcon, ProfileIcon, SalaryIcon } from '../icon/icon';
+import { ApprovedIcon, CheckinIcon, CheckoutIcon, DashboardIcon, DayoffIcon, ProfileIcon, SalaryIcon, UserManageIcon } from '../icon/icon';
+import { FileCheck} from 'lucide-react';
 
 
 function Sidebar() {
@@ -86,6 +87,28 @@ function Sidebar() {
           <div className="flex gap-2">
           <DashboardIcon className="w-6"/>
           Dashboard
+          </div>
+        </Link>
+      </li>
+      <li className="w-full">
+        <Link
+          to="/admin/user-management"
+          className="block py-2 px-4 hover:bg-blue-500 hover:text-white"
+        >
+          <div className="flex gap-2">
+          <UserManageIcon className="w-6"/>
+          User Management
+          </div>
+        </Link>
+      </li>
+      <li className="w-full">
+        <Link
+          to="/admin/Work-time-record"
+          className="block py-2 px-4 hover:bg-blue-500 hover:text-white"
+        >
+          <div className="flex gap-2">
+          <FileCheck className="w-6"/>
+          Worktime record
           </div>
         </Link>
       </li>

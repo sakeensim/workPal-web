@@ -11,6 +11,8 @@ import AdvanceSalary from '../userPage/AdvanceSalary'
 import AdminApprovalPage from '../adminPage/AdminApprovalPage'
 import ProtectRoutes from './ProtectRoutes'
 import Dashboard from '../adminPage/Dashboard'
+import UserManagement from '../adminPage/UserManagement'
+import WorkTimeRecord from '../adminPage/WorkTimeRecord'
 
 
 function AppRoutes() {
@@ -35,7 +37,9 @@ function AppRoutes() {
                 {/* Private [ADMIN] */}
                 <Route path='admin' element={<ProtectRoutes el={<Layout />} allows={['ADMIN']} />}>
                     <Route index element={<AdminApprovalPage />} />
-                <Route path= 'Dashboard' element={<Dashboard/>}/>
+                <Route path= 'dashboard' element={<Dashboard/>}/>
+                <Route path= 'user-management' element={<UserManagement/>}/>
+                <Route path= 'Work-time-record' element={<WorkTimeRecord/>}/>
                 </Route>
 
             </Routes>

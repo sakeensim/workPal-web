@@ -1,237 +1,263 @@
-import React, { useEffect, useState } from 'react';
-import useAuthStore from '../store/auth-store';
+import React, { useState, useEffect } from 'react';
+import { DollarSign, User, Search } from 'lucide-react';
 import axios from 'axios';
-import { createAlert } from '../utils/createAlert';
+import useAuthStore from '../store/auth-store';
 
-function AdminDashboard() {
-    const token = useAuthStore((state) => state.token);
-    const user = useAuthStore((state) => state.user);
-    const [employees, setEmployees] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [confirmDelete, setConfirmDelete] = useState(null);
-    const [editingSalaryId, setEditingSalaryId] = useState(null);
-    const [newSalary, setNewSalary] = useState('');
-    
-    const enableSalaryEdit = (id, currentSalary) => {
-        setEditingSalaryId(id);
-        setNewSalary(currentSalary || '');
-    };
-    
+function Dashboard() {
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [filter, setFilter] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'lastname', direction: 'ascending' });
+  const token = useAuthStore((state) => state.token);
 
-    // Check if user is admin
-    useEffect(() => {
-        if (user.role !== 'ADMIN') {
-            // Redirect non-admin users
-            window.location.href = '/profile';
-        } else {
-            fetchEmployees();
+  useEffect(() => {
+    fetchEmployees();
+  }, [currentMonth]);
+
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1;
+
+      const response = await axios.get('http://localhost:9191/admin/dashboard', {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-    }, [user]);
+      });
+      const data = await response.data;
 
-    const fetchEmployees = async () => {
-        try {
-            setLoading(true);
-            const res = await axios.get('http://localhost:9191/user/list', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setEmployees(res.data.result);
-            setLoading(false);
-        } catch (error) {
-            console.error('Error fetching employees:', error);
-            createAlert('error', 'Failed to fetch employees');
-            setLoading(false);
-        }
-    };
-   
-    const updateSalary = async (id) => {
-        try {
-            await axios.patch('http://localhost:9191/admin/update-salary',  
-                { id, baseSalary: newSalary },  // Send ID and new salary in the request body
-                { headers: { Authorization: `Bearer ${token}` } } // Correctly place headers here
-            );
-            createAlert('success', 'Salary updated successfully');
-            fetchEmployees(); // Refresh the employee list
-            setEditingSalaryId(null);
-        } catch (error) {
-            console.error('Error updating salary:', error);
-            createAlert('error', 'Failed to update salary');
-        }
-    };
+      console.log('Fetched employees data:', data);
 
-    const handleRoleChange = async (id, newRole) => {
-        try {
-            await axios.post('http://localhost:9191/user/update-role',
-                { id, role: newRole },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            createAlert('success', 'Role updated successfully');
-            fetchEmployees(); // Refresh the list
-        } catch (error) {
-            console.error('Error updating role:', error);
-            createAlert('error', 'Failed to update role');
-        }
-    };
-
-    const handleDelete = async (id) => {
-        try {
-            await axios.delete(`http://localhost:9191/user/delete/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            createAlert('success', 'User deleted successfully');
-            fetchEmployees(); // Refresh the list
-            setConfirmDelete(null); // Close confirmation
-        } catch (error) {
-            console.error('Error deleting user:', error);
-            createAlert('error', 'Failed to delete user');
-        }
-    };
-
-    // Format date
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('th-TH');
-    };
-
-    if (loading) {
-        return <div className="flex justify-center items-center h-screen">Loading...</div>;
+      if (response.status === 200) {
+        setEmployees(data);
+      } else {
+        console.error('Failed to fetch employees:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return (
-        <div className="ml-60 p-6">
-            <h1 className="text-2xl font-bold mb-6 text-white">Employee Management Dashboard</h1>
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-TH', {
+      style: 'currency',
+      currency: 'BTH',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
 
-            <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-700">
-                        <thead className="bg-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Profile</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Phone</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Emergency Contact</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Base Salary</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Joined</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Role</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-gray-800 divide-y divide-gray-700">
-                            {employees.map((employee) => (
-                                <tr key={employee.id} className="hover:bg-gray-700">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-600">
-                                            {employee.profileImage ? (
-                                                <img
-                                                    src={employee.profileImage}
-                                                    alt={`${employee.firstname} profile`}
-                                                    className="h-full w-full object-cover"
-                                                    onError={(e) => {
-                                                        e.target.src = "https://via.placeholder.com/40";
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div className="h-full w-full flex items-center justify-center text-white">
-                                                    {employee.firstname.charAt(0)}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                                        {employee.firstname} {employee.lastname}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                        {employee.email}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                        {employee.phone || '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                        {employee.emergencyContact || '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                        {editingSalaryId === employee.id ? (
-                                            <div className="flex items-center space-x-2">
-                                                <input
-                                                    type="string"
-                                                    className="bg-gray-700 border border-gray-600 text-white rounded px-2 py-1 w-24"
-                                                    value={newSalary}
-                                                    onChange={(e) => setNewSalary(e.target.value)}
-                                                />
-                                                <button
-                                                    onClick={() => updateSalary(employee.id)}
-                                                    className="text-xs bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded"
-                                                >
-                                                    Save
-                                                </button>
-                                                <button
-                                                    onClick={() => setEditingSalaryId(null)}
-                                                    className="text-xs bg-gray-600 hover:bg-gray-700 text-white py-1 px-2 rounded"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <span onClick={() => enableSalaryEdit(employee.id, employee.baseSalary)} className="cursor-pointer hover:text-white">
-                                                {employee.baseSalary ? `${Number(employee.baseSalary).toLocaleString()} บาท` : '-'}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                        {formatDate(employee.createdAt)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {user.id !== employee.id ? (
-                                            <select
-                                                className="bg-gray-700 border border-gray-600 text-white rounded px-2 py-1"
-                                                value={employee.role}
-                                                onChange={(e) => handleRoleChange(employee.id, e.target.value)}
-                                            >
-                                                <option value="USER">USER</option>
-                                                <option value="ADMIN">ADMIN</option>
-                                            </select>
-                                        ) : (
-                                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-500 text-white">
-                                                {employee.role} (You)
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {user.id !== employee.id ? (
-                                            confirmDelete === employee.id ? (
-                                                <div className="flex space-x-2">
-                                                    <button
-                                                        onClick={() => handleDelete(employee.id)}
-                                                        className="text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
-                                                    >
-                                                        Confirm
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setConfirmDelete(null)}
-                                                        className="text-xs bg-gray-600 hover:bg-gray-700 text-white py-1 px-2 rounded"
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => setConfirmDelete(employee.id)}
-                                                    className="text-xs bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded"
-                                                >
-                                                    Delete
-                                                </button>
-                                            )
-                                        ) : (
-                                            <span className="text-xs text-gray-500">Cannot Delete</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+  const getMonthName = (date) => {
+    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
+
+  const changeMonth = (increment) => {
+    const newDate = new Date(currentMonth);
+    newDate.setMonth(newDate.getMonth() + increment);
+    setCurrentMonth(newDate);
+  };
+
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedEmployees = React.useMemo(() => {
+    const sortableEmployees = [...employees];
+    if (sortConfig.key) {
+      sortableEmployees.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableEmployees;
+  }, [employees, sortConfig]);
+
+  const filteredEmployees = sortedEmployees.filter(
+    employee =>
+      employee.firstname.toLowerCase().includes(filter.toLowerCase()) ||
+      employee.lastname.toLowerCase().includes(filter.toLowerCase()) ||
+      employee.email.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  const getSortIndicator = (key) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'ascending' ? '↑' : '↓';
+  };
+
+  return (
+    <div className="bg-gradient-to-t from-blue-800 to-blue-500 min-h-screen ml-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+
+          {/* Header */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+              <h1 className="text-2xl font-bold text-gray-900">Employee Dashboard</h1>
+
+              <div className="flex items-center mt-4 sm:mt-0">
+                <button
+                  onClick={() => changeMonth(-1)}
+                  className="p-2 bg-gray-100 rounded-l-md hover:bg-gray-200"
+                >
+                  &lt;
+                </button>
+                <div className="px-4 py-2 bg-gray-100 font-medium">
+                  {getMonthName(currentMonth)}
                 </div>
+                <button
+                  onClick={() => changeMonth(1)}
+                  className="p-2 bg-gray-100 rounded-r-md hover:bg-gray-200"
+                >
+                  &gt;
+                </button>
+              </div>
             </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+              <div className="relative w-full sm:w-64 mb-4 sm:mb-0">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex space-x-2">
+                <div className="flex items-center text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded">
+                  <User size={16} className="mr-1" />
+                  <span>{employees.length} Employees</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex justify-center items-center p-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => requestSort('firstname')}
+                    >
+                      <div className="flex items-center">
+                        <span>Name</span>
+                        <span className="ml-1">{getSortIndicator('firstname')}</span>
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      <div className="flex items-center">
+                        <span>Base Salary</span>
+                      </div>
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center">
+                        <span>Day Offs</span>
+                      </div>
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center">
+                        <span>Advance Taken</span>
+                      </div>
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => requestSort('finalSalary')}
+                    >
+                      <div className="flex items-center">
+                        <span>Final Salary</span>
+                        <span className="ml-1">{getSortIndicator('finalSalary')}</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredEmployees.length > 0 ? (
+                    filteredEmployees.map((employee) => (
+                      <tr key={employee.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              {employee.profileImage ? (
+                                <img className="h-10 w-10 rounded-full object-cover" src={employee.profileImage} alt="" />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                                  <User size={20} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {employee.firstname} {employee.lastname}
+                              </div>
+                              <div className="text-sm text-gray-500">{employee.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 font-medium">
+                            {formatCurrency(employee.baseSalary || 0)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="ml-2 text-sm text-gray-900">
+                              <span className="font-medium">{employee.dayOffsTaken || 0}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {formatCurrency(employee.advanceTaken || 0)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatCurrency(employee.finalSalary || 0)}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                        No employees found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 }
 
-export default AdminDashboard;
+export default Dashboard;

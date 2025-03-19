@@ -26,7 +26,7 @@ function CheckIn() {
             const userIP = res.data.ip;
             console.log(res.data)
 
-            const allowedIPs = ['110.168.210.188']; // Replace with your office Wi-Fi IPs
+            const allowedIPs = ['184.82.221.58']; // Replace with your office Wi-Fi IPs
 
             if (allowedIPs.includes(userIP)) {
                 setIsAllowed(true);
@@ -42,20 +42,24 @@ function CheckIn() {
 
     const hdlSubmit = async (e) => {
         e.preventDefault();
-        if (isAllowed) {
-            createAlert("success","ลงชื่อเข้า สำเร็จ")
+    
+        if (!isAllowed) {
+            createAlert("info", "คุณต้องเชื่อมต่อไวไฟบริษัท!");
             return;
-        } else if(!isAllowed){
-            createAlert("info","คุณต้องเชื่อมต่อไวไฟบริษัท!");
         }
+    
         try {
-            console.log("hellooooo")
-            const res = await actionCheckIn(token);
-            console.log(res)
+            console.log("Sending check-in request...");
+            const res = await actionCheckIn(token); // Now properly returns data
+    
+            console.log("Check-in response:", res); // Should display actual data
+            createAlert("success", "ลงชื่อเข้า สำเร็จ");
         } catch (error) {
-            console.log(error);
+            console.error("Check-in failed:", error);
+            createAlert("error", "Check-in ล้มเหลว");
         }
     };
+    
     return (
         <>
 

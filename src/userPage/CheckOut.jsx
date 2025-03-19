@@ -23,7 +23,7 @@ function CheckOut() {
             const userIP = res.data.ip;
             console.log(res.data)
 
-            const allowedIPs = ['110.168.210.188']; // Replace with your office Wi-Fi IPs
+            const allowedIPs = ['184.82.221.58']; // Replace with your office Wi-Fi IPs
 
             if (allowedIPs.includes(userIP)) {
                 setIsAllowed(true);
@@ -37,23 +37,29 @@ function CheckOut() {
     };
     const hdlSubmit = async (e) => {
         e.preventDefault();
-
-       if (isAllowed) {
-                   createAlert("success","ลงชื่อออก สำเร็จ")
-                   return;
-               } else if(!isAllowed){
-                   createAlert("info","คุณต้องเชื่อมต่อไวไฟบริษัท!");
-               }
-
-
+    
+        if (!isAllowed) {
+            createAlert("info", "คุณต้องเชื่อมต่อไวไฟบริษัท!");
+            return;
+        }
+    
+        if (!time?.id) {
+            console.error("Error: time.id is undefined!");
+            createAlert("error", "ไม่พบ ID การเข้าเช็คอิน กรุณาลองใหม่");
+            return;
+        }
+    
         try {
-           const res = await actionCheckOut(time.id,token)
-            console.log("CheckOut",res)
-            
+            console.log("Sending check-out request with ID:", time.id);
+            const res = await actionCheckOut(time.id, token);
+            console.log("Check-Out Response:", res);
+            createAlert("success", "ลงชื่อออก สำเร็จ");
         } catch (error) {
-            console.log("Check-Out",error);
+            console.error("Check-Out Failed:", error);
+            createAlert("error", "Check-out ล้มเหลว");
         }
     };
+    
   return (
     <>
     <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 min-h-screen'>
