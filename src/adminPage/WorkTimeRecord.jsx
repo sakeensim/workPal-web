@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format } from 'date-fns';
 import { Calendar, Clock, ChevronLeft, ChevronRight, Users } from 'lucide-react';
-import useTimeStore from '../store/time-store';
-import useAuthStore from '../store/auth-store'; // Assuming you have an auth store for token
+import useAuthStore from '../store/auth-store';
 
 const WorkTimeRecordPage = () => {
     const [records, setRecords] = useState([]);
@@ -13,17 +12,18 @@ const WorkTimeRecordPage = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const [selectedEmployee, setSelectedEmployee] = useState('all');
 
-    const { token } = useAuthStore(); // Assuming you store auth token in a store
+    const { token } = useAuthStore();
 
-    // Function to fetch employees (needed for dropdown)
+    // Function to fetch employees
     const fetchEmployees = async () => {
         try {
-            const res = await axios.get('http://localhost:9191/admin/employees', {
+            const res = await axios.get('http://localhost:9191/admin/getemployee', {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
-            setEmployees(res.data.data || []);
+            console.log('Employees fetched:', res.data.result);
+            setEmployees(res.data.result || []);
         } catch (err) {
             console.error('Error fetching employees:', err);
             setError('Failed to load employees');
@@ -34,33 +34,53 @@ const WorkTimeRecordPage = () => {
     const fetchTimeRecords = async () => {
         setLoading(true);
         try {
+            const month = format(selectedMonth, 'M');
+            const year = format(selectedMonth, 'yyyy');
 
-
-            const month = format(selectedMonth, 'M'); // Get the month number
-            const year = format(selectedMonth, 'yyyy'); // Get the year
+            // Build URL with the selectedEmployee
             let url = `http://localhost:9191/admin/Work-time-record?month=${month}&year=${year}&_=${new Date().getTime()}`;
-
-
 
             if (selectedEmployee !== 'all') {
                 url += `&employeeId=${selectedEmployee}`;
             }
-            try {
-                const res = await axios.get(url, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                console.log("Raw API Response:", res.data);
-                setRecords(res.data.data || []);
-            } catch (err) {
-                console.error("Error fetching time records:", err);
-            }
+
+            console.log("Fetching records with URL:", url);
+
             const res = await axios.get(url, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
-            console.log("API Response Data:", res.data);
-            setRecords(res.data.data || []);
+
+            // Log the full response data to inspect its structure
+            console.log("Full API response:", res.data);
+
+            let recordsData = res.data.data || [];
+
+            // If we're filtering by employee, ensure records have the employee ID
+            if (selectedEmployee !== 'all') {
+                // Add the selected employee ID to each record if it's missing
+                recordsData = recordsData.map(record => ({
+                    ...record,
+                    employeeId: record.employeeId || selectedEmployee
+                }));
+            }
+
+            // Deduplicate records based on employee ID, date, check-in and check-out times
+            const uniqueRecords = [];
+            const seenRecords = new Set();
+
+            recordsData.forEach(record => {
+                // Create a unique key for each record
+                const recordKey = `${record.employeeId || ''}-${record.date || ''}-${record.checkIn || ''}-${record.checkOut || ''}`;
+
+                if (!seenRecords.has(recordKey)) {
+                    seenRecords.add(recordKey);
+                    uniqueRecords.push(record);
+                }
+            });
+
+            setRecords(uniqueRecords);
             setLoading(false);
         } catch (err) {
             console.error('Error fetching time records:', err);
@@ -68,10 +88,6 @@ const WorkTimeRecordPage = () => {
             setLoading(false);
         }
     };
-    useEffect(() => {
-        console.log("Raw API Response:", records);
-    }, [records]);
-    
     // Initialize data
     useEffect(() => {
         fetchEmployees();
@@ -106,44 +122,45 @@ const WorkTimeRecordPage = () => {
         return format(new Date(dateTimeStr), 'hh:mm a');
     };
 
-
-
-
     // Calculate duration between check-in and check-out
     const calculateDuration = (checkIn, checkOut) => {
         if (!checkIn || !checkOut || isNaN(new Date(checkIn).getTime()) || isNaN(new Date(checkOut).getTime())) {
-            console.warn(`Invalid check-in or check-out times: ${checkIn}, ${checkOut}`);
             return 'N/A';
         }
-    
+
         const checkInTime = new Date(checkIn).getTime();
         const checkOutTime = new Date(checkOut).getTime();
         const diffMs = checkOutTime - checkInTime;
-    
+
         if (diffMs <= 0) return 'N/A';
-    
+
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
+
         return `${hours}h ${minutes}m`;
     };
-    
 
-    console.log("Fetched records:", records);
-    // Group records by employee
-    const groupedRecords = {};
-    records.forEach((record, index) => {
-        console.log(`Record ${index}:`, record);
-        console.log("Record Date:", record?.date || "MISSING");
-        console.log("Check-in Time:", record?.checkIn || "MISSING");
-        console.log("Check-out Time:", record?.checkOut || "MISSING");
-        const employeeId = record.employeesId;
-        if (!groupedRecords[employeeId]) {
-            groupedRecords[employeeId] = [];
+    // Handle employee selection change
+    const handleEmployeeChange = (e) => {
+        const value = e.target.value;
+        console.log("Selected Employee changing to:", value);
+        setSelectedEmployee(value);
+    };
+
+    // Find employee name by ID
+    const getEmployeeName = (employeeId) => {
+        // When filtered, use the selected employee
+        if (selectedEmployee !== 'all' && employeeId === undefined) {
+            employeeId = selectedEmployee;
         }
-        groupedRecords[employeeId].push(record);
-    });
 
+        if (!employeeId) return "Unknown";
+
+        const employee = employees.find(e => String(e.id) === String(employeeId));
+        return employee
+            ? `${employee.firstname || ''} ${employee.lastname || ''}`
+            : 'Unknown';
+    };
 
     return (
         <div className="container mx-auto p-6 ml-50">
@@ -180,15 +197,19 @@ const WorkTimeRecordPage = () => {
                         <Users className="mr-2" size={16} />
                         <select
                             value={selectedEmployee}
-                            onChange={(e) => setSelectedEmployee(e.target.value)}
+                            onChange={handleEmployeeChange}
                             className="bg-gray-100 border border-gray-300 rounded-md px-3 py-2"
                         >
                             <option value="all">All Employees</option>
-                            {employees.map(employee => (
-                                <option key={employee.id} value={employee.id}>
-                                    {employee.firstname} {employee.lastname}
-                                </option>
-                            ))}
+                            {employees && employees.length > 0 ? (
+                                employees.map(employee => (
+                                    <option key={employee.id} value={employee.id}>
+                                        {employee?.firstname || ''} {employee?.lastname || ''}
+                                    </option>
+                                ))
+                            ) : (
+                                <option disabled>No employees found</option>
+                            )}
                         </select>
                     </div>
                 </div>
@@ -215,29 +236,31 @@ const WorkTimeRecordPage = () => {
                                 </tr>
                             </thead>
                             <tbody>
-
                                 {records.map((record, index) => {
-                                    if (!record) return null; // Skip invalid records
+                                    if (!record) return null;
 
-                                    const employee = employees.find(e => e.id === record.employeesId) || {};
+                                    // Try all possible field names for employee ID
+                                    const employeeId = record.employeeId || record.employeesId || record.employee_id;
 
-                                    console.log("Record Date:", record.date);
-                                    console.log("Check-in Time:", record.checkIn);
-                                    console.log("Check-out Time:", record.checkOut);
+                                    // Get employee name - when filtering by employee, use the selected employee
+                                    const employeeName = selectedEmployee !== 'all' && !employeeId
+                                        ? getEmployeeName(selectedEmployee)
+                                        : getEmployeeName(employeeId);
+
+                                    // Generate a more robust unique key
+                                    const uniqueKey = `${employeeId || selectedEmployee}-${record.date}-${record.checkIn}-${record.checkOut}-${index}`;
 
                                     return (
-                                        <tr key={record.id || index} className="hover:bg-gray-50 border-b">
-                                            <td className="py-3 px-4">
-                                                {employee.firstname || 'Unknown'} {employee.lastname || ''}
-                                            </td>
+                                        <tr key={uniqueKey} className="hover:bg-gray-50 border-b">
+                                            <td className="py-3 px-4">{employeeName}</td>
                                             <td className="py-3 px-4">
                                                 {record.date ? format(new Date(record.date), 'MMM dd, yyyy') : 'N/A'}
                                             </td>
                                             <td className="py-3 px-4">
-                                                {record.checkIn ? formatTime(record.checkIn) : 'N/A'}
+                                                {formatTime(record.checkIn)}
                                             </td>
                                             <td className="py-3 px-4">
-                                                {record.checkOut ? formatTime(record.checkOut) : 'N/A'}
+                                                {formatTime(record.checkOut)}
                                             </td>
                                             <td className="py-3 px-4">
                                                 {calculateDuration(record.checkIn, record.checkOut)}
@@ -245,7 +268,6 @@ const WorkTimeRecordPage = () => {
                                         </tr>
                                     );
                                 })}
-
                             </tbody>
                         </table>
                     </div>
