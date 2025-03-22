@@ -11,7 +11,7 @@ import {
   SalaryIcon,
   UserManageIcon,
 } from "../icon/icon";
-import { FileCheck, Menu } from "lucide-react";
+import { FileCheck, GlobeLock, Menu, Network } from "lucide-react";
 
 function Sidebar() {
   const user = useAuthStore((state) => state.user);
@@ -154,6 +154,17 @@ function Sidebar() {
                   <FileCheck className="w-6" />
                   {isExpanded && (
                     <span className="ml-2">Worktime Record</span>
+                  )}
+                </Link>
+              </li>
+              <li className="w-full">
+                <Link
+                  to="/admin/network-setting"
+                  className="flex items-center gap-2 p-2 hover:bg-blue-500 hover:text-white"
+                >
+                  <GlobeLock className="w-6" />
+                  {isExpanded && (
+                    <span className="ml-2">Network Setting</span>
                   )}
                 </Link>
               </li>

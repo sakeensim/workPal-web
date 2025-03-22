@@ -13,6 +13,7 @@ import ProtectRoutes from './ProtectRoutes'
 import Dashboard from '../adminPage/Dashboard'
 import UserManagement from '../adminPage/UserManagement'
 import WorkTimeRecord from '../adminPage/WorkTimeRecord'
+import NetworkSettings from '../adminPage/NetworkSettings'
 
 
 function AppRoutes() {
@@ -40,6 +41,7 @@ function AppRoutes() {
                 <Route path= 'dashboard' element={<Dashboard/>}/>
                 <Route path= 'user-management' element={<UserManagement/>}/>
                 <Route path= 'Work-time-record' element={<WorkTimeRecord/>}/>
+                <Route path= 'network-setting' element={<NetworkSettings/>}/>
                 </Route>
 
             </Routes>

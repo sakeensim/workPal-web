@@ -5,25 +5,29 @@ import useAuthStore from '../store/auth-store';
 import timeStore from '../store/time-store';
 import axios from 'axios';
 import { createAlert } from '../utils/createAlert';
+import useIPConfigStore from '../store/IP-Config';
 
 function CheckOut() {
     const token = useAuthStore((state) => state.token);
     const { time, actionCheckOut } = timeStore();
+    const { allowedIPs } = useIPConfigStore(); // Get allowed IPs from store
     const [isAllowed, setIsAllowed] = useState(false);
+    const [userIP, setUserIP] = useState('');
 
     useEffect(() => {
         checkNetwork();
-    }, []);
+    }, [allowedIPs]); // Re-check when allowed IPs change
 
     const checkNetwork = async () => {
         try {
             const res = await axios.get('https://ipwhois.app/json/');
-            const userIP = res.data.ip;
-            console.log(res.data);
+            const currentIP = res.data.ip;
+            setUserIP(currentIP);
+            console.log("Current IP:", currentIP);
+            console.log("Allowed IPs:", allowedIPs);
 
-            const allowedIPs = ['184.82.221.58']; // Replace with your office Wi-Fi IPs
-
-            setIsAllowed(allowedIPs.includes(userIP));
+            // Check if current IP is in the allowed list
+            setIsAllowed(allowedIPs.includes(currentIP));
         } catch (error) {
             console.error("Error fetching IP:", error);
             setIsAllowed(false);
