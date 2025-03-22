@@ -63,7 +63,7 @@ function AdminApprovalPage() {
   };
 
   return (
-    <div className="min-h-screen sm:ml-50">
+    <div className="h-screen p-4 sm:ml-50">
       {/* Adjust the margin based on your sidebar implementation */}
       <div className="max-w-7xl mx-auto pl-16 md:pl-16 lg:pl-16">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-4 sm:mb-6 mt-2">Approval Requests</h1>
