@@ -96,7 +96,7 @@ function UserManagement() {
     }
 
     return (
-        <div className="ml-60 p-6">
+        <div className="min-h-screen lg:ml-50 ml-0">
             <h1 className="text-2xl font-bold mb-6 text-white">Employee Management Dashboard</h1>
 
             <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">

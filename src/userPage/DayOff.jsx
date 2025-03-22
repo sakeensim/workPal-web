@@ -43,36 +43,40 @@ function DayOff() {
       console.error("Error submitting day off:", error);
     }
   };
-  
 
   return (
-    <div className="flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 h-screen">
-      <div className="flex mt-50 border-amber-50 w-140 h-140 text-5xl text-white leading-relaxed ml-40">
+    <div className="flex flex-col lg:flex-row justify-center items-center h-screen p-4">
+      
+      {/* Hidden on mobile, visible on larger screens */}
+      <div className="hidden lg:flex border-amber-50 text-4xl text-white leading-relaxed ml-10">
         “Take a break, take a breath, and take care of yourself."
       </div>
 
-      <div className="flex flex-col items-center border-white w-100 h-150 bg-gray-100 rounded-2xl">
-        <h3 className="text-3xl text-blue-900 mt-5">Day Off</h3>
+      {/* The main square box */}
+      <div className="flex flex-col items-center border-white bg-gray-100 rounded-2xl 
+                      w-80 h-150 sm:w-96 sm:h-96 lg:w-100 lg:h-150 p-6 shadow-lg">
+        <h3 className="text-2xl text-blue-900 mt-3">วันหยุด</h3>
 
-        <form onSubmit={hdlSubmit}>
-          <div className="flex flex-col gap-5 mt-5">
+        <form onSubmit={hdlSubmit} className="w-full">
+          <div className="flex flex-col gap-4 mt-4">
             <DayPicker mode="single" selected={selected} onSelect={setSelected} />
 
             <input
               placeholder="เหตุผล"
               type="text"
               name="reason"
-              className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
+              className="border w-full h-10 border-gray-400 rounded-md p-2"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
 
-            <button className="border-white w-74 h-12 rounded-2xl bg-blue-700 mt-3 text-xl text-white">
+            <button className="w-full h-12 rounded-lg bg-blue-700 text-xl text-white mt-3">
               Submit
             </button>
           </div>
         </form>
       </div>
+
     </div>
   );
 }

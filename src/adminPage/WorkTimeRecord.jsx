@@ -52,35 +52,41 @@ const WorkTimeRecordPage = () => {
                 },
             });
 
-            // Log the full response data to inspect its structure
             console.log("Full API response:", res.data);
 
             let recordsData = res.data.data || [];
 
-            // If we're filtering by employee, ensure records have the employee ID
-            if (selectedEmployee !== 'all') {
-                // Add the selected employee ID to each record if it's missing
-                recordsData = recordsData.map(record => ({
-                    ...record,
-                    employeeId: record.employeeId || selectedEmployee
-                }));
-            }
-
-            // Deduplicate records based on employee ID, date, check-in and check-out times
-            const uniqueRecords = [];
-            const seenRecords = new Set();
-
-            recordsData.forEach(record => {
-                // Create a unique key for each record
-                const recordKey = `${record.employeeId || ''}-${record.date || ''}-${record.checkIn || ''}-${record.checkOut || ''}`;
-
-                if (!seenRecords.has(recordKey)) {
-                    seenRecords.add(recordKey);
-                    uniqueRecords.push(record);
-                }
+            // Filter out records with invalid check-in or check-out times
+            recordsData = recordsData.filter(record => {
+                if (!record) return false;
+                
+                // Check if record has valid check-in AND check-out
+                const hasValidCheckIn = record.checkIn && !isNaN(new Date(record.checkIn).getTime());
+                const hasValidCheckOut = record.checkOut && !isNaN(new Date(record.checkOut).getTime());
+                
+                // Only keep records with both valid check-in and check-out
+                return hasValidCheckIn && hasValidCheckOut;
             });
 
-            setRecords(uniqueRecords);
+            // Process employee IDs
+            recordsData = recordsData.map(record => {
+                // Normalize employee ID field (handle different field names)
+                const employeeId = record.employeeId || record.employeesId || record.employee_id;
+                
+                // Only include records that match the selected employee when filtering
+                if (selectedEmployee !== 'all' && String(employeeId) !== String(selectedEmployee)) {
+                    return null; // This will be filtered out below
+                }
+                
+                return {
+                    ...record,
+                    normalizedEmployeeId: employeeId // Add a normalized field
+                };
+            }).filter(Boolean); // Remove null entries
+
+            console.log(`After processing: ${recordsData.length} records`);
+
+            setRecords(recordsData);
             setLoading(false);
         } catch (err) {
             console.error('Error fetching time records:', err);
@@ -88,6 +94,7 @@ const WorkTimeRecordPage = () => {
             setLoading(false);
         }
     };
+
     // Initialize data
     useEffect(() => {
         fetchEmployees();
@@ -114,7 +121,7 @@ const WorkTimeRecordPage = () => {
         setSelectedMonth(newDate);
     };
 
-    // Format time for display
+    // Format time for display - improved validation
     const formatTime = (dateTimeStr) => {
         if (!dateTimeStr || typeof dateTimeStr !== 'string' || isNaN(Date.parse(dateTimeStr))) {
             return 'N/A';
@@ -122,7 +129,7 @@ const WorkTimeRecordPage = () => {
         return format(new Date(dateTimeStr), 'hh:mm a');
     };
 
-    // Calculate duration between check-in and check-out
+    // Calculate duration between check-in and check-out - improved validation
     const calculateDuration = (checkIn, checkOut) => {
         if (!checkIn || !checkOut || isNaN(new Date(checkIn).getTime()) || isNaN(new Date(checkOut).getTime())) {
             return 'N/A';
@@ -149,11 +156,6 @@ const WorkTimeRecordPage = () => {
 
     // Find employee name by ID
     const getEmployeeName = (employeeId) => {
-        // When filtered, use the selected employee
-        if (selectedEmployee !== 'all' && employeeId === undefined) {
-            employeeId = selectedEmployee;
-        }
-
         if (!employeeId) return "Unknown";
 
         const employee = employees.find(e => String(e.id) === String(employeeId));
@@ -163,7 +165,7 @@ const WorkTimeRecordPage = () => {
     };
 
     return (
-        <div className="container mx-auto p-6 ml-50">
+        <div className="container mx-auto lg:ml-60 ml-0 p-4 lg:p-6">
             <div className="bg-white rounded-lg shadow-md p-6">
                 <h1 className="text-2xl font-bold mb-6 flex items-center">
                     <Clock className="mr-2" size={24} />
@@ -239,16 +241,14 @@ const WorkTimeRecordPage = () => {
                                 {records.map((record, index) => {
                                     if (!record) return null;
 
-                                    // Try all possible field names for employee ID
-                                    const employeeId = record.employeeId || record.employeesId || record.employee_id;
+                                    // Get the normalized employee ID
+                                    const employeeId = record.normalizedEmployeeId;
+                                    
+                                    // Get employee name
+                                    const employeeName = getEmployeeName(employeeId);
 
-                                    // Get employee name - when filtering by employee, use the selected employee
-                                    const employeeName = selectedEmployee !== 'all' && !employeeId
-                                        ? getEmployeeName(selectedEmployee)
-                                        : getEmployeeName(employeeId);
-
-                                    // Generate a more robust unique key
-                                    const uniqueKey = `${employeeId || selectedEmployee}-${record.date}-${record.checkIn}-${record.checkOut}-${index}`;
+                                    // Generate a unique key
+                                    const uniqueKey = `${employeeId || 'unknown'}-${record.date}-${record.checkIn}-${record.checkOut}-${index}`;
 
                                     return (
                                         <tr key={uniqueKey} className="hover:bg-gray-50 border-b">

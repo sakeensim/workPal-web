@@ -29,6 +29,7 @@ function Dashboard() {
       const data = await response.data;
 
       console.log('Fetched employees data:', data);
+      data.forEach(emp => console.log(emp.dayOffsTaken));
 
       if (response.status === 200) {
         setEmployees(data);
@@ -41,7 +42,30 @@ function Dashboard() {
       setLoading(false);
     }
   };
-
+  
+  const getDaysOffForMonth = (dayOffs) => {
+    if (!Array.isArray(dayOffs)) {
+      console.warn("Invalid dayOffs data:", dayOffs);
+      return 0; // Prevents filter error
+    }
+  
+    return dayOffs.filter(dayOff => {
+      if (!dayOff) return false;
+      
+      const dateStr = typeof dayOff === 'string' ? dayOff : dayOff.date;
+      if (!dateStr) return false;
+  
+      const dayOffDate = new Date(dateStr);
+      return (
+        dayOffDate.getFullYear() === currentMonth.getFullYear() &&
+        dayOffDate.getMonth() === currentMonth.getMonth()
+      );
+    }).length;
+  };
+  
+  
+  
+  
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-TH', {
       style: 'currency',
@@ -97,7 +121,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="bg-gradient-to-t from-blue-800 to-blue-500 min-h-screen ml-50">
+    <div className=" min-h-screen sm:ml-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
 
@@ -227,7 +251,7 @@ function Dashboard() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="ml-2 text-sm text-gray-900">
-                              <span className="font-medium">{employee.dayOffsTaken || 0}</span>
+                              <span className="font-medium">{getDaysOffForMonth(employee.dayOffsTaken)}</span>
                             </div>
                           </div>
                         </td>

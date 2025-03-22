@@ -1,17 +1,15 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router'
-import moment from 'moment/min/moment-with-locales'
-import axios from 'axios'
-import useAuthStore from '../store/auth-store'
-import timeStore from '../store/time-store'
-import { createAlert } from '../utils/createAlert'
-
-
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import moment from 'moment/min/moment-with-locales';
+import axios from 'axios';
+import useAuthStore from '../store/auth-store';
+import timeStore from '../store/time-store';
+import { createAlert } from '../utils/createAlert';
 
 function CheckIn() {
-    const token = useAuthStore((state) => state.token)
-    const { actionCheckIn } = timeStore()
-    const [isAllowed, setIsAllowed] = useState(false)
+    const token = useAuthStore((state) => state.token);
+    const { actionCheckIn } = timeStore();
+    const [isAllowed, setIsAllowed] = useState(false);
 
     useEffect(() => {
         checkNetwork();
@@ -19,21 +17,12 @@ function CheckIn() {
 
     const checkNetwork = async () => {
         try {
-
-            // const res = await axios.get('https://ipapi.co/json/');
             const res = await axios.get('https://ipwhois.app/json/');
-
             const userIP = res.data.ip;
-            console.log(res.data)
+            console.log(res.data);
 
             const allowedIPs = ['184.82.221.58']; // Replace with your office Wi-Fi IPs
-
-            if (allowedIPs.includes(userIP)) {
-                setIsAllowed(true);
-            } else {
-                setIsAllowed(false);
-            }
-            
+            setIsAllowed(allowedIPs.includes(userIP));
         } catch (error) {
             console.error("Error fetching IP:", error);
             setIsAllowed(false);
@@ -42,78 +31,72 @@ function CheckIn() {
 
     const hdlSubmit = async (e) => {
         e.preventDefault();
-    
+
         if (!isAllowed) {
             createAlert("info", "คุณต้องเชื่อมต่อไวไฟบริษัท!");
             return;
         }
-    
+
         try {
             console.log("Sending check-in request...");
-            const res = await actionCheckIn(token); // Now properly returns data
-    
-            console.log("Check-in response:", res); // Should display actual data
+            const res = await actionCheckIn(token);
+            console.log("Check-in response:", res);
             createAlert("success", "ลงชื่อเข้า สำเร็จ");
         } catch (error) {
             console.error("Check-in failed:", error);
             createAlert("error", "Check-in ล้มเหลว");
         }
     };
-    
+
     return (
-        <>
-
-            <div className='flex justify-around items-center bg-gradient-to-t from-blue-800 to-blue-500 min-h-screen'>
-                <div className="flex mt-50 border-amber-50 w-140 h-140 text-6xl text-white leading-relaxed ml-40">
-                    "Work with purpose, live with passion."
-                </div>
-
-                <div className="flex flex-col items-center  border-white w-1/4 h-140 bg-gray-100 rounded-2xl">
-                    <h3 className='text-3xl text-blue-900  mt-15'>เวลาเข้า-ออกงาน</h3>
-                    {/* sign-in sign-up */}
-                    <div className="flex mt-6 ml-2">
-                        <div className="border-amber-50 w-40 h-12 rounded-2xl bg-blue-700 absolute -ml-4 ">
-                            <p className='text-xl text-white flex justify-center mt-2'>เวลาเข้า</p>
-                        </div>
-                        <div className="border-amber-50 w-40 h-12  rounded-2xl bg-white ml-30 ">
-                            <Link to='/user/check-out' className='text-xl text-blue-950 flex justify-center mt-2'>เวลาออก</Link>
-                        </div>
-                    </div>
-                    {/* input */}
-                    <form onSubmit={hdlSubmit}>
-                        <div className="flex flex-col gap-5 mt-10">
-
-                            <input
-                                disabled
-                                placeholder='วันที่'
-                                type='text'
-                                defaultValue={moment(new Date()).locale("th").format("dddd ll")}
-                                className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
-
-                            />
-                            <input
-                                disabled
-                                placeholder='เวลา'
-                                type='text'
-                                defaultValue={moment(new Date()).locale("th").format("LTS")}
-                                className="border w-74 h-10 border-gray-400 rounded-md p-1 px-4"
-
-                            />
-
-
-                            <button type="submit" className="border-white w-74 h-12 rounded-2xl bg-blue-700 mt-3 text-xl text-white">
-                                Check-In
-                            </button>
-
-                        </div>
-                    </form>
-                </div>
-
-
+        <div className="flex flex-col lg:flex-row justify-center items-center h-screen p-4">
+            
+            {/* Hidden on mobile, visible on larger screens */}
+            <div className="hidden lg:flex text-4xl text-white leading-relaxed ml-10">
+                "Work with purpose, live with passion."
             </div>
 
-        </>
-    )
+            {/* Check-In Box */}
+            <div className="flex flex-col items-center border-white bg-gray-100 rounded-2xl 
+                            w-80 h-120 sm:w-96 sm:h-96 lg:w-100 lg:h-150 p-6 shadow-lg">
+                <h3 className="text-2xl text-blue-900 mt-3">เวลาเข้า-ออกงาน</h3>
+
+                {/* Navigation Buttons */}
+                <div className="flex mt-6 w-full justify-center">
+                    <p className="w-36 h-12 flex justify-center items-center text-xl text-white bg-blue-700 rounded-xl">
+                        เวลาเข้า
+                    </p>
+                    <Link to='/user/check-out' className="w-36 h-12 flex justify-center items-center text-xl text-blue-950 bg-white rounded-xl border border-gray-300 ml-2">
+                        เวลาออก
+                    </Link>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={hdlSubmit} className="w-full mt-6">
+                    <div className="flex flex-col gap-4">
+                        <input
+                            disabled
+                            placeholder='วันที่'
+                            type='text'
+                            defaultValue={moment(new Date()).locale("th").format("dddd ll")}
+                            className="border w-full h-10 border-gray-400 rounded-md p-2"
+                        />
+                        <input
+                            disabled
+                            placeholder='เวลา'
+                            type='text'
+                            defaultValue={moment(new Date()).locale("th").format("LTS")}
+                            className="border w-full h-10 border-gray-400 rounded-md p-2"
+                        />
+                        <button type="submit" className="w-full h-12 rounded-lg bg-blue-700 text-xl text-white mt-3">
+                            Check-In
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    );
 }
 
-export default CheckIn
+export default CheckIn;

@@ -5,6 +5,7 @@ import { EditIcon } from '../icon/icon';
 import useAuthStore from '../store/auth-store';
 import axios from 'axios';
 import { createAlert } from '../utils/createAlert';
+import { Trash2 } from 'lucide-react';
 
 function Profile() {
     const token = useAuthStore((state) => state.token);
@@ -92,7 +93,7 @@ function Profile() {
     const remainingDayOffs = totalDayOffs - dayOffDates.length;
 
     return (
-        <form onSubmit={handleSubmit(hdlSubmit)} className="w-full max-w-4xl mx-auto p-4">
+        <form onSubmit={handleSubmit(hdlSubmit)} className="w-full max-w-4xl pb-1 mx-auto p-4">
             {/* Profile Info */}
             <div className="flex flex-col items-center md:flex-row md:items-start md:gap-8">
                 <div className="w-40 h-40 rounded-full overflow-hidden bg-gray-300 shadow-lg">
@@ -135,7 +136,9 @@ function Profile() {
                         dayOffDates.map((dayOff, index) => (
                             <div key={index} className="flex justify-between items-center mb-2">
                                 <p>{new Date(dayOff.date).toLocaleDateString('th-TH')}</p>
-                                <button onClick={() => deleteDayOff(dayOff.id)} className="text-xl">✖</button>
+                                <button onClick={() => deleteDayOff(dayOff.id)} className="text-xl">
+                                    <Trash2 />
+                                </button>
                             </div>
                         ))
                     ) : (
