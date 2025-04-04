@@ -4,43 +4,16 @@ import useAuthStore from '../store/auth-store';
 import { createAlert } from '../utils/createAlert';
 
 function NetworkSettingsPage() {
-  const [newIP, setNewIP] = useState('');
-  const [ipError, setIpError] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importText, setImportText] = useState('');
   
-  const { allowedIPs, addAllowedIP, removeAllowedIP, setAllowedIPs } = useIPConfigStore();
+  const { allowedIPs, removeAllowedIP, setAllowedIPs } = useIPConfigStore();
   const token = useAuthStore((state) => state.token);
   
   // Validate IP address format
   const isValidIP = (ip) => {
     const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipRegex.test(ip);
-  };
-
-  // Add new IP to the allowed list
-  const handleAddIP = (e) => {
-    e.preventDefault();
-    
-    if (!newIP) {
-      setIpError('IP address cannot be empty');
-      return;
-    }
-    
-    if (!isValidIP(newIP)) {
-      setIpError('Please enter a valid IP address');
-      return;
-    }
-    
-    if (allowedIPs.includes(newIP)) {
-      setIpError('This IP address is already in the list');
-      return;
-    }
-    
-    addAllowedIP(newIP);
-    setNewIP('');
-    setIpError('');
-    createAlert("success", `IP ${newIP} added successfully`);
   };
 
   // Import multiple IPs
@@ -139,7 +112,7 @@ function NetworkSettingsPage() {
             
             <p className="text-gray-600 mb-6">
               Only employees connected to these IP addresses will be able to check in and check out.
-              Add your office network IPs to ensure attendance can be registered properly.
+              IP addresses can only be modified by importing a list or through the system administrator.
             </p>
             
             {/* Import IPs form */}
@@ -173,28 +146,6 @@ function NetworkSettingsPage() {
               </div>
             )}
             
-            {/* Add new IP form */}
-            <form onSubmit={handleAddIP} className="mb-6">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-grow">
-                  <input
-                    type="text"
-                    placeholder="Enter new IP address (e.g., 192.168.1.1)"
-                    value={newIP}
-                    onChange={(e) => setNewIP(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {ipError && <p className="text-red-500 text-sm mt-1">{ipError}</p>}
-                </div>
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition duration-200 whitespace-nowrap"
-                >
-                  Add IP
-                </button>
-              </div>
-            </form>
-            
             {/* IP list */}
             <div className="border border-gray-200 rounded-md overflow-hidden mb-6">
               <table className="min-w-full divide-y divide-gray-200">
@@ -212,7 +163,7 @@ function NetworkSettingsPage() {
                   {allowedIPs.length === 0 ? (
                     <tr>
                       <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
-                        No allowed IPs configured. Add one to allow check-ins.
+                        No allowed IPs configured. Import IPs to allow check-ins.
                       </td>
                     </tr>
                   ) : (
