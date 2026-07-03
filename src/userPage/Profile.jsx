@@ -227,8 +227,8 @@ function Profile() {
 
   if (editMode) {
     return (
-      <div className="min-h-dvh bg-[#F5F8FD] px-3.5 pb-32 pt-4 text-[#0F172A]">
-        <div className="mx-auto w-full max-w-md">
+      <div className="min-h-dvh bg-[#F5F8FD] px-3.5 pb-32 pt-4 text-[#0F172A] lg:px-6 lg:pb-10 lg:pt-6">
+        <div className="mx-auto w-full max-w-md lg:max-w-3xl xl:max-w-4xl">
           <header className="relative flex h-11 items-center justify-center">
             <button
               type="button"
@@ -263,8 +263,8 @@ function Profile() {
               </p>
             </section>
 
-            <section className="mt-6 overflow-hidden rounded-[1.15rem] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-              <div className="px-4 py-4">
+            <section className="mt-6 overflow-hidden rounded-[1.15rem] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)] lg:rounded-[1.35rem]">
+              <div className="grid gap-x-4 px-4 py-4 lg:grid-cols-2 lg:px-6 lg:py-5">
                 <EditInput
                   label="ชื่อ"
                   placeholder="กรอกชื่อ"
@@ -284,7 +284,7 @@ function Profile() {
                   register={register('phone')}
                 />
 
-                <div className="mb-4">
+                <div className="mb-4 lg:col-span-2">
                   <p className="mb-1.5 text-sm font-black text-slate-950">
                     อีเมล
                   </p>
@@ -320,8 +320,8 @@ function Profile() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#F5F8FD] px-3.5 pb-32 pt-4 text-[#0F172A]">
-      <div className="mx-auto w-full max-w-md">
+    <div className="min-h-dvh bg-[#F5F8FD] px-3.5 pb-32 pt-4 text-[#0F172A] lg:px-6 lg:pb-10 lg:pt-6">
+      <div className="mx-auto w-full max-w-md lg:max-w-3xl xl:max-w-4xl">
         <header className="relative flex h-11 items-center justify-center">
           <button
             type="button"
@@ -367,8 +367,8 @@ function Profile() {
             </p>
           </section>
 
-          <section className="mt-6 overflow-hidden rounded-[1.15rem] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-            <div className="flex items-center justify-between px-4 pb-1 pt-4">
+          <section className="mt-6 overflow-hidden rounded-[1.15rem] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)] lg:rounded-[1.35rem]">
+            <div className="flex items-center justify-between px-4 pb-1 pt-4 lg:px-6 lg:pt-5">
               <div>
                 <h2 className="text-base font-black text-slate-950">
                   ข้อมูลโปรไฟล์
@@ -389,7 +389,7 @@ function Profile() {
               </button>
             </div>
 
-            <div className="px-4 pb-2 pt-1">
+            <div className="px-4 pb-2 pt-1 lg:px-6 lg:pb-4">
               <InfoRow
                 label="ชื่อ"
                 value={profile?.firstname || '-'}
@@ -435,8 +435,8 @@ function Profile() {
             </div>
           </section>
 
-          <section className="mt-4 overflow-hidden rounded-[1.15rem] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-            <div className="px-4 py-2">
+          <section className="mt-4 overflow-hidden rounded-[1.15rem] bg-white shadow-[0_10px_28px_rgba(15,23,42,0.05)] lg:rounded-[1.35rem]">
+            <div className="px-4 py-2 lg:px-6 lg:py-3">
               <InfoRow
                 label="ตำแหน่ง"
                 value={safePosition?.name || '-'}
@@ -519,7 +519,7 @@ function InfoRow({ label, value, icon, color = 'blue' }) {
       : 'bg-slate-50 text-slate-500'
 
   return (
-    <div className="flex items-center gap-3 py-3">
+    <div className="flex items-center gap-3 py-3 lg:gap-4 lg:py-3.5">
       <div
         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
       >

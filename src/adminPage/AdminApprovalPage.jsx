@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 import {
   Banknote,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   CalendarDays,
   Filter,
   Loader2,
@@ -38,6 +40,8 @@ const TABS = [
 const THAI_TIME_ZONE = 'Asia/Bangkok'
 
 function AdminApprovalPage() {
+  const navigate = useNavigate()
+
   const token = useAuthStore((state) => state.token)
 
   const [requests, setRequests] = useState([])
@@ -242,18 +246,32 @@ function AdminApprovalPage() {
     }
   }
 
+  const handleBack = () => {
+    navigate('/user/other')
+  }
+
   return (
     <>
       <div className="min-h-dvh bg-[#F5F8FD] px-3 pb-24 pt-3.5 text-[#0F172A] sm:px-6 sm:pb-8 lg:px-4 lg:pb-6 lg:pt-4 xl:px-5">
       <div className="mx-auto w-full max-w-6xl space-y-3 lg:max-w-5xl lg:space-y-2.5 xl:max-w-6xl">
-        <header>
-          <h1 className="text-3xl font-black tracking-tight text-slate-950 lg:text-2xl">
-            อนุมัติคำขอ
-          </h1>
+        <header className="relative flex min-h-[44px] items-center justify-center">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="absolute left-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-slate-600 shadow-[0_8px_22px_rgba(15,23,42,0.06)] active:scale-95 lg:h-9 lg:w-9"
+          >
+            <ChevronLeft size={21} strokeWidth={3} className="lg:h-4.5 lg:w-4.5" />
+          </button>
 
-          <p className="mt-0.5 text-xs font-semibold text-slate-400">
-            ตรวจสอบและอนุมัติคำขอของพนักงาน
-          </p>
+          <div className="min-w-0 px-12 text-center">
+            <h1 className="truncate text-3xl font-black tracking-tight text-slate-950 lg:text-2xl">
+              อนุมัติคำขอ
+            </h1>
+
+            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+              ตรวจสอบและอนุมัติคำขอของพนักงาน
+            </p>
+          </div>
         </header>
 
         <section className="rounded-[1.25rem] bg-white p-1.5 shadow-[0_8px_22px_rgba(15,23,42,0.05)] lg:rounded-[1.05rem] lg:p-1.5 lg:shadow-[0_8px_22px_rgba(15,23,42,0.045)]">

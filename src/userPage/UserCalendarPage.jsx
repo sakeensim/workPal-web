@@ -82,6 +82,8 @@ function UserCalendarPage() {
 
   const [profile, setProfile] = useState(null)
   const [events, setEvents] = useState([])
+  const [branches, setBranches] = useState([])
+  const [selectedBranchId, setSelectedBranchId] = useState('all')
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
 
@@ -113,9 +115,39 @@ function UserCalendarPage() {
   const safeBranchId =
     profile?.branchId || user?.branchId || safeBranch?.id || null
 
-  const canUseCalendar = Boolean(safeBranchId && safeBranch)
-  const canCreateNote = Boolean(isAdminOrOwner && safeBranchId && safeBranch)
-  const canDeleteNote = canCreateNote
+  const activeBranches = useMemo(() => {
+    return branches.filter((branch) => {
+      if (!branch) return false
+      if (branch.isDeleted === true) return false
+      if (branch.isActive === false) return false
+
+      return true
+    })
+  }, [branches])
+
+  const selectedBranchData = useMemo(() => {
+    if (selectedBranchId === 'all') return null
+
+    return (
+      activeBranches.find((branch) => {
+        return String(branch.id) === String(selectedBranchId)
+      }) ||
+      (String(safeBranchId) === String(selectedBranchId) ? safeBranch : null)
+    )
+  }, [activeBranches, selectedBranchId, safeBranchId, safeBranch])
+
+  const selectedCalendarBranchId = isAdminOrOwner
+    ? selectedBranchId === 'all'
+      ? null
+      : selectedBranchId
+    : safeBranchId
+
+  const canUseCalendar = isAdminOrOwner
+    ? true
+    : Boolean(safeBranchId && safeBranch)
+
+  const canCreateNote = Boolean(isAdminOrOwner && selectedCalendarBranchId)
+  const canDeleteNote = isAdminOrOwner
 
   useEffect(() => {
     if (!token) return
@@ -123,9 +155,30 @@ function UserCalendarPage() {
   }, [token])
 
   useEffect(() => {
-    if (!token) return
+    if (!token || profileLoading || !isAdminOrOwner) return
+
+    fetchBranches()
+  }, [token, profileLoading, isAdminOrOwner])
+
+  useEffect(() => {
+    if (!token || profileLoading) return
+
+    if (!canUseCalendar) {
+      setEvents([])
+      setLoading(false)
+      return
+    }
+
     fetchCalendar()
-  }, [token, calendarDate, safeBranchId])
+  }, [
+    token,
+    profileLoading,
+    calendarDate,
+    safeBranchId,
+    selectedBranchId,
+    isAdminOrOwner,
+    canUseCalendar,
+  ])
 
   const fetchProfile = async () => {
     try {
@@ -146,6 +199,34 @@ function UserCalendarPage() {
     }
   }
 
+  const fetchBranches = async () => {
+    if (!isAdminOrOwner) return
+
+    try {
+      const res = await axios.get(`${API_URL}/admin/branches`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      const branchData =
+        res.data?.data || res.data?.result || res.data?.branches || []
+
+      setBranches(
+        branchData.filter((branch) => {
+          return branch && branch.isDeleted !== true
+        })
+      )
+    } catch (error) {
+      console.log(error)
+
+      createAlert(
+        'error',
+        error.response?.data?.message || 'โหลดรายชื่อสาขาไม่สำเร็จ'
+      )
+    }
+  }
+
   const fetchCalendar = async () => {
     try {
       setLoading(true)
@@ -153,14 +234,26 @@ function UserCalendarPage() {
       const month = moment(calendarDate).month() + 1
       const year = moment(calendarDate).year()
 
-      const res = await axios.get(
-        `${API_URL}/calendar/user?month=${month}&year=${year}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const params = new URLSearchParams({
+        month: String(month),
+        year: String(year),
+      })
+
+      let url = `${API_URL}/calendar/user?${params.toString()}`
+
+      if (isAdminOrOwner) {
+        if (selectedCalendarBranchId) {
+          params.set('branchId', String(selectedCalendarBranchId))
         }
-      )
+
+        url = `${API_URL}/calendar/admin?${params.toString()}`
+      }
+
+      const res = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
       const rawEvents = res.data.data || res.data.result || []
 
@@ -174,8 +267,9 @@ function UserCalendarPage() {
             item.branchName ||
             item.branch?.name ||
             item.raw?.branchName ||
+            selectedBranchData?.name ||
             safeBranch?.name ||
-            'สาขาของฉัน'
+            'สาขา'
 
           let title = ''
 
@@ -193,7 +287,7 @@ function UserCalendarPage() {
             title,
             date: moment(date).format('YYYY-MM-DD'),
             type: item.type,
-            branchId: item.branchId || safeBranchId || null,
+            branchId: item.branchId || selectedCalendarBranchId || safeBranchId || null,
             branchName,
             raw: item,
           }
@@ -277,8 +371,24 @@ function UserCalendarPage() {
     return events.filter((event) => event.date === selectedDateKey)
   }, [events, selectedDateKey])
 
-  const branchName = safeBranch?.name || 'ยังไม่พบข้อมูลสาขา'
-  const branchAddress = safeBranch?.address || 'ปฏิทินประจำสาขา'
+  const branchName = isAdminOrOwner
+    ? selectedBranchId === 'all'
+      ? 'ทุกสาขา'
+      : selectedBranchData?.name || 'ยังไม่พบข้อมูลสาขา'
+    : safeBranch?.name || 'ยังไม่พบข้อมูลสาขา'
+
+  const branchAddress = isAdminOrOwner
+    ? selectedBranchId === 'all'
+      ? 'Admin/Owner สามารถดูปฏิทินรวมทุกสาขา'
+      : selectedBranchData?.address || 'ปฏิทินประจำสาขา'
+    : safeBranch?.address || 'ปฏิทินประจำสาขา'
+
+  const noteBranchName =
+    selectedBranchData?.name ||
+    (String(safeBranchId) === String(selectedCalendarBranchId)
+      ? safeBranch?.name
+      : '') ||
+    'กรุณาเลือกสาขา'
 
   const goPrevMonth = () => {
     setCalendarDate((prev) => moment(prev).subtract(1, 'month').toDate())
@@ -311,7 +421,7 @@ function UserCalendarPage() {
       createAlert(
         'error',
         isAdminOrOwner
-          ? 'บัญชีนี้ยังไม่มีสาขาที่ใช้งานได้ จึงเพิ่ม Note ไม่ได้'
+          ? 'กรุณาเลือกสาขาก่อนเพิ่ม Note'
           : 'เฉพาะ Admin หรือ Owner เท่านั้นที่เพิ่ม Note ได้'
       )
       return
@@ -351,7 +461,7 @@ function UserCalendarPage() {
         date: noteForm.date,
         title: noteForm.title.trim(),
         note: noteForm.note?.trim() || null,
-        branchId: Number(safeBranchId),
+        branchId: Number(selectedCalendarBranchId),
       }
 
       await axios.post(`${API_URL}/admin/calendar-note`, payload, {
@@ -440,24 +550,35 @@ function UserCalendarPage() {
         </header>
 
         <section className="rounded-[1.7rem] bg-gradient-to-br from-[#0057E7] via-[#0052D9] to-[#003BB5] p-4 text-white shadow-[0_14px_34px_rgba(37,99,235,0.28)] lg:rounded-[1.25rem] lg:p-3">
-          <div className="flex items-center gap-3 lg:gap-2.5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 lg:h-9 lg:w-9 lg:rounded-xl">
-              <Building2 size={22} className="lg:h-[18px] lg:w-[18px]" />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+            <div className="flex min-w-0 items-center gap-3 lg:gap-2.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 lg:h-9 lg:w-9 lg:rounded-xl">
+                <Building2 size={22} className="lg:h-[18px] lg:w-[18px]" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-white/65 lg:text-[10px]">
+                  {isAdminOrOwner ? 'มุมมองปฏิทิน' : 'สาขาของฉัน'}
+                </p>
+
+                <h2 className="truncate text-lg font-black lg:text-base">
+                  {profileLoading ? 'กำลังโหลดข้อมูลสาขา...' : branchName}
+                </h2>
+
+                <p className="truncate text-xs font-semibold text-white/65 lg:text-[10px]">
+                  {profileLoading ? 'กรุณารอสักครู่' : branchAddress}
+                </p>
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-white/65 lg:text-[10px]">
-                สาขาของฉัน
-              </p>
-
-              <h2 className="truncate text-lg font-black lg:text-base">
-                {profileLoading ? 'กำลังโหลดข้อมูลสาขา...' : branchName}
-              </h2>
-
-              <p className="truncate text-xs font-semibold text-white/65 lg:text-[10px]">
-                {profileLoading ? 'กรุณารอสักครู่' : branchAddress}
-              </p>
-            </div>
+            {isAdminOrOwner && (
+              <BranchFilterSelect
+                value={selectedBranchId}
+                onChange={setSelectedBranchId}
+                branches={activeBranches}
+                loading={profileLoading}
+              />
+            )}
           </div>
         </section>
 
@@ -517,7 +638,7 @@ function UserCalendarPage() {
           noteForm={noteForm}
           setNoteForm={setNoteForm}
           noteLoading={noteLoading}
-          branchName={branchName}
+          branchName={noteBranchName}
           onClose={closeNoteModal}
           onSubmit={submitNote}
         />
@@ -525,6 +646,41 @@ function UserCalendarPage() {
     </div>
   )
 }
+
+
+function BranchFilterSelect({ value, onChange, branches, loading }) {
+  return (
+    <div className="min-w-0 lg:w-[240px]">
+      <p className="mb-1 text-[10px] font-black text-white/60">
+        เลือกสาขา
+      </p>
+
+      <div className="relative">
+        <select
+          value={value}
+          disabled={loading}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-11 w-full appearance-none rounded-2xl border border-white/15 bg-white/15 px-3 pr-9 text-sm font-black text-white outline-none backdrop-blur-md active:scale-[0.99] disabled:opacity-60 lg:h-10 lg:rounded-xl lg:text-xs [&>option]:bg-white [&>option]:text-slate-900"
+        >
+          <option value="all">ทุกสาขา</option>
+
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.name}
+            </option>
+          ))}
+        </select>
+
+        <ChevronRight
+          size={16}
+          strokeWidth={3}
+          className="pointer-events-none absolute right-3 top-1/2 rotate-90 -translate-y-1/2 text-white/70"
+        />
+      </div>
+    </div>
+  )
+}
+
 
 function CalendarHeader({ calendarDate, onPrev, onNext, onToday }) {
   return (
