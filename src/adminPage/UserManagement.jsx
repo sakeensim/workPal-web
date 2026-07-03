@@ -714,14 +714,14 @@ function EmployeeFullScreen({
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('history')
   const [salaryDraft, setSalaryDraft] = useState(employee.baseSalary || '')
-  const [statsOpen, setStatsOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(true)
 
   const canManageEmployee = String(user?.role || '').toUpperCase() === 'OWNER'
 
   useEffect(() => {
     setDetail(employee)
     setDetailMonth(month)
-    setStatsOpen(false)
+    setStatsOpen(true)
     setConfirmDelete(null)
   }, [employee, month, setConfirmDelete])
 
@@ -874,7 +874,7 @@ function EmployeeFullScreen({
   ]
 
   return (
-    <div className="fixed inset-0 z-[999999] overflow-y-auto bg-[#F5F8FD] pb-[calc(env(safe-area-inset-bottom)+92px)] text-[#0F172A] lg:left-[260px] lg:top-[80px] lg:z-20 lg:pb-8 lg:pl-0">
+    <div className="fixed inset-0 z-[999999] overflow-y-auto bg-[#F5F8FD] pb-[calc(env(safe-area-inset-bottom)+92px)] text-[#0F172A] lg:left-[260px] lg:top-[80px] lg:z-40 lg:pb-8 lg:pl-0">
       <div className="sticky top-0 z-30 bg-[#F5F8FD]/95 px-3.5 pb-3 pt-4 backdrop-blur-xl sm:px-6 lg:pt-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <button
