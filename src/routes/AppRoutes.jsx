@@ -3,23 +3,19 @@ import { Route, Routes } from 'react-router'
 
 import Layout from '../layouts/Layout'
 import Login from '../pages/Login'
-
+import RequestPage from '../userPage/RequestPage'
 import Profile from '../userPage/Profile'
-import CheckIn from '../userPage/CheckIn'
-import CheckOut from '../userPage/CheckOut'
-import DayOff from '../userPage/DayOff'
-import AdvanceSalary from '../userPage/AdvanceSalary'
 import UserHistoryPage from '../userPage/UserHistoryPage'
 import Home from '../userPage/Home'
+import BranchPage from '../adminPage/BranchPage'
 import AdminApprovalPage from '../adminPage/AdminApprovalPage'
-import Dashboard from '../adminPage/Dashboard'
 import UserManagement from '../adminPage/UserManagement'
-import WorkTimeRecord from '../adminPage/WorkTimeRecord'
-import OrganizationSettings from '../adminPage/OrganizationSettings'
-import HolidayPage from '../adminPage/HolidayPage'
-import CalendarPage from '../adminPage/CalendarPage'
+import ServerLog from '../adminPage/ServerLog'
+import BranchSetting from '../adminPage/BranchSetting'
 import ProtectRoutes from './ProtectRoutes'
 import UserCalendarPage from '../userPage/UserCalendarPage'
+import Other from '../userPage/Other'
+import Notification from '../userPage/Notification'
 
 function AppRoutes() {
   return (
@@ -37,12 +33,11 @@ function AppRoutes() {
       >
         <Route index element={<Home />} />
         <Route path="profile" element={<Profile />} />
-        <Route path="check-in" element={<CheckIn />} />
-        <Route path="check-out" element={<CheckOut />} />
-        <Route path="day-off" element={<DayOff />} />
-        <Route path="advancd-salary" element={<AdvanceSalary />} />
         <Route path="history" element={<UserHistoryPage />} />
         <Route path="calendar" element={<UserCalendarPage />} />
+        <Route path="request" element={<RequestPage />} />
+        <Route path="other" element={<Other />} />
+        <Route path="notifications" element={<Notification />} />
       </Route>
 
       <Route
@@ -55,17 +50,19 @@ function AppRoutes() {
         }
       >
         <Route index element={<AdminApprovalPage />} />
-        <Route path="dashboard" element={<Dashboard />} />
-
+        <Route path="user-management" element={<UserManagement />} />
+        <Route path="branch" element={<BranchPage />} />
+        <Route path="branch/:branchId/settings" element={<BranchSetting />} />
+        {/* OWNER only */}
         <Route
-            path="user-management"
-            element={<UserManagement />}
+          path="audit-logs"
+          element={
+            <ProtectRoutes
+              el={<ServerLog />}
+              allows={['OWNER']}
+            />
+          }
         />
-
-        <Route path="work-time-record" element={<WorkTimeRecord />} />
-        <Route path="organization" element={<OrganizationSettings />} />
-        <Route path="holiday" element={<HolidayPage />} />
-        <Route path="calendar" element={<CalendarPage />} />
       </Route>
     </Routes>
   )

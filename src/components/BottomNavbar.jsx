@@ -30,7 +30,7 @@ const menus = [
   },
   {
     name: 'ตั้งค่า',
-    path: '/user/profile',
+    path: '/user/other',
     icon: Settings,
   },
 ]
@@ -47,7 +47,7 @@ export default function BottomNavbar() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden">
       <div className="mx-auto max-w-md px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]">
         <div className="rounded-[1.7rem] border border-white/80 bg-white/95 px-2 py-2 shadow-[0_-10px_30px_rgba(15,23,42,0.10)] backdrop-blur-xl">
           <div className="flex h-[64px] items-center justify-between">

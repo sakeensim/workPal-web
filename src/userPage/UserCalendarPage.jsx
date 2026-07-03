@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import moment from 'moment'
 import 'moment/locale/th'
@@ -12,6 +12,8 @@ import {
   Umbrella,
   Building2,
   Loader2,
+  AlertCircle,
+  Trash2,
 } from 'lucide-react'
 
 import API_URL from '../utils/api'
@@ -27,21 +29,62 @@ const DEFAULT_NOTE_FORM = {
 }
 
 const WEEK_DAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-const CALENDAR_MODES = ['compact', 'medium', 'expanded']
+
+const THAI_MONTHS = [
+  'มกราคม',
+  'กุมภาพันธ์',
+  'มีนาคม',
+  'เมษายน',
+  'พฤษภาคม',
+  'มิถุนายน',
+  'กรกฎาคม',
+  'สิงหาคม',
+  'กันยายน',
+  'ตุลาคม',
+  'พฤศจิกายน',
+  'ธันวาคม',
+]
+
+const THAI_WEEK_DAYS_FULL = [
+  'วันอาทิตย์',
+  'วันจันทร์',
+  'วันอังคาร',
+  'วันพุธ',
+  'วันพฤหัสบดี',
+  'วันศุกร์',
+  'วันเสาร์',
+]
+
+const formatThaiMonthYear = (date) => {
+  const finalDate = moment(date)
+  const monthName = THAI_MONTHS[finalDate.month()]
+  const year = finalDate.year()
+
+  return `${monthName} ${year}`
+}
+
+const formatThaiFullDate = (date) => {
+  const finalDate = moment(date)
+  const day = finalDate.date()
+  const monthName = THAI_MONTHS[finalDate.month()]
+  const year = finalDate.year()
+
+  return `${day} ${monthName} ${year}`
+}
+
+const formatThaiWeekDay = (date) => {
+  return THAI_WEEK_DAYS_FULL[moment(date).day()]
+}
 
 function UserCalendarPage() {
   const token = useAuthStore((state) => state.token)
   const user = useAuthStore((state) => state.user)
-
-  const calendarTouchStartY = useRef(null)
-  const wheelLockRef = useRef(false)
 
   const [profile, setProfile] = useState(null)
   const [events, setEvents] = useState([])
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
 
-  const [calendarMode, setCalendarMode] = useState('medium')
   const [dayModalOpen, setDayModalOpen] = useState(false)
 
   const [loading, setLoading] = useState(true)
@@ -50,6 +93,29 @@ function UserCalendarPage() {
   const [noteModalOpen, setNoteModalOpen] = useState(false)
   const [noteForm, setNoteForm] = useState(DEFAULT_NOTE_FORM)
   const [noteLoading, setNoteLoading] = useState(false)
+  const [deleteNoteLoading, setDeleteNoteLoading] = useState(null)
+
+  const role = String(profile?.role || user?.role || '').toUpperCase()
+  const isAdminOrOwner = role === 'ADMIN' || role === 'OWNER'
+
+  const safeBranch = useMemo(() => {
+    const branch = profile?.branch || user?.branch || null
+    const branchId = profile?.branchId || user?.branchId || null
+
+    if (!branchId) return null
+    if (!branch) return null
+    if (branch.isActive === false) return null
+    if (branch.isDeleted === true) return null
+
+    return branch
+  }, [profile, user])
+
+  const safeBranchId =
+    profile?.branchId || user?.branchId || safeBranch?.id || null
+
+  const canUseCalendar = Boolean(safeBranchId && safeBranch)
+  const canCreateNote = Boolean(isAdminOrOwner && safeBranchId && safeBranch)
+  const canDeleteNote = canCreateNote
 
   useEffect(() => {
     if (!token) return
@@ -59,7 +125,7 @@ function UserCalendarPage() {
   useEffect(() => {
     if (!token) return
     fetchCalendar()
-  }, [token, calendarDate, profile?.branch?.name])
+  }, [token, calendarDate, safeBranchId])
 
   const fetchProfile = async () => {
     try {
@@ -71,7 +137,8 @@ function UserCalendarPage() {
         },
       })
 
-      setProfile(res.data.result || null)
+      const profileData = res.data.result || res.data.data || res.data || null
+      setProfile(profileData)
     } catch (error) {
       console.log(error)
     } finally {
@@ -97,42 +164,49 @@ function UserCalendarPage() {
 
       const rawEvents = res.data.data || res.data.result || []
 
-      const mappedEvents = rawEvents.map((item) => {
-        const date = item.date || item.startDate || item.start
+      const mappedEvents = rawEvents
+        .map((item) => {
+          const date = item.date || item.startDate || item.start
 
-        const branchName =
-          item.branchName ||
-          item.branch?.name ||
-          item.raw?.branchName ||
-          profile?.branch?.name ||
-          user?.branch?.name ||
-          'สาขาของฉัน'
+          if (!date) return null
 
-        let title = ''
+          const branchName =
+            item.branchName ||
+            item.branch?.name ||
+            item.raw?.branchName ||
+            safeBranch?.name ||
+            'สาขาของฉัน'
 
-        if (item.type === 'holiday') {
-          title = item.title || `วันหยุด: ${branchName}`
-        } else if (item.type === 'note') {
-          title = item.title || 'Note'
-        } else {
-          title = `${item.employeeName || item.name || 'พนักงาน'} ลางาน`
-        }
+          let title = ''
 
-        return {
-          id: `${item.type}-${item.id}`,
-          eventId: item.id,
-          title,
-          date: moment(date).format('YYYY-MM-DD'),
-          type: item.type,
-          branchName,
-          raw: item,
-        }
-      })
+          if (item.type === 'holiday') {
+            title = item.title || `วันหยุด: ${branchName}`
+          } else if (item.type === 'note') {
+            title = item.title || 'Note'
+          } else {
+            title = `${item.employeeName || item.name || 'พนักงาน'} ลางาน`
+          }
+
+          return {
+            id: `${item.type}-${item.id}`,
+            eventId: item.id,
+            title,
+            date: moment(date).format('YYYY-MM-DD'),
+            type: item.type,
+            branchId: item.branchId || safeBranchId || null,
+            branchName,
+            raw: item,
+          }
+        })
+        .filter(Boolean)
 
       setEvents(mappedEvents)
     } catch (error) {
       console.log(error)
-      createAlert('error', 'โหลดปฏิทินไม่สำเร็จ')
+      createAlert(
+        'error',
+        error.response?.data?.message || 'โหลดปฏิทินไม่สำเร็จ'
+      )
     } finally {
       setLoading(false)
     }
@@ -197,138 +271,14 @@ function UserCalendarPage() {
     return days
   }, [calendarDate, events, selectedDate])
 
-  const visibleCalendarDays = useMemo(() => {
-    if (calendarMode !== 'compact') return calendarDays
-
-    const selectedKey = moment(selectedDate).format('YYYY-MM-DD')
-    const selectedIndex = calendarDays.findIndex(
-      (item) => item.date === selectedKey
-    )
-
-    if (selectedIndex === -1) return calendarDays.slice(0, 7)
-
-    const weekStartIndex = Math.floor(selectedIndex / 7) * 7
-    return calendarDays.slice(weekStartIndex, weekStartIndex + 7)
-  }, [calendarDays, calendarMode, selectedDate])
-
   const selectedDateKey = moment(selectedDate).format('YYYY-MM-DD')
 
   const selectedDayEvents = useMemo(() => {
     return events.filter((event) => event.date === selectedDateKey)
   }, [events, selectedDateKey])
 
-  const branchName =
-    profile?.branch?.name || user?.branch?.name || 'ยังไม่พบข้อมูลสาขา'
-
-  const branchAddress =
-    profile?.branch?.address || user?.branch?.address || 'ปฏิทินประจำสาขา'
-
-  const expandCalendar = () => {
-    setCalendarMode((prev) => {
-      const currentIndex = CALENDAR_MODES.indexOf(prev)
-      return CALENDAR_MODES[
-        Math.min(currentIndex + 1, CALENDAR_MODES.length - 1)
-      ]
-    })
-  }
-
-  const collapseCalendar = () => {
-    setCalendarMode((prev) => {
-      const currentIndex = CALENDAR_MODES.indexOf(prev)
-      return CALENDAR_MODES[Math.max(currentIndex - 1, 0)]
-    })
-  }
-
-  const changeCalendarWithLock = (direction) => {
-    if (wheelLockRef.current) return
-
-    wheelLockRef.current = true
-
-    if (direction === 'expand') {
-      expandCalendar()
-    } else {
-      collapseCalendar()
-    }
-
-    setTimeout(() => {
-      wheelLockRef.current = false
-    }, 280)
-  }
-
-  const handleCalendarWheel = (e) => {
-    if (Math.abs(e.deltaY) < 24) return
-
-    if (e.deltaY > 0) {
-      changeCalendarWithLock('expand')
-    } else {
-      changeCalendarWithLock('collapse')
-    }
-  }
-
-  const handleCalendarTouchStart = (e) => {
-    calendarTouchStartY.current = e.touches[0].clientY
-  }
-
-  const handleCalendarTouchEnd = (e) => {
-    if (calendarTouchStartY.current === null) return
-
-    const endY = e.changedTouches[0].clientY
-    const diff = endY - calendarTouchStartY.current
-
-    if (Math.abs(diff) < 42) {
-      calendarTouchStartY.current = null
-      return
-    }
-
-    // โทรศัพท์:
-    // ลากนิ้วลง = ขยาย
-    // ลากนิ้วขึ้น = ย่อ
-    if (diff > 0) {
-      changeCalendarWithLock('expand')
-    } else {
-      changeCalendarWithLock('collapse')
-    }
-
-    calendarTouchStartY.current = null
-  }
-
-  const handleDetailBoundaryWheel = (e, scrollEl) => {
-    if (!scrollEl) return
-    if (Math.abs(e.deltaY) < 18) return
-
-    const isScrollingDown = e.deltaY > 0
-    const isScrollingUp = e.deltaY < 0
-
-    const atTop = scrollEl.scrollTop <= 1
-    const atBottom =
-      scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 2
-
-    if (isScrollingDown && atBottom) {
-      changeCalendarWithLock('expand')
-      return
-    }
-
-    if (isScrollingUp && atTop) {
-      changeCalendarWithLock('collapse')
-    }
-  }
-
-  const handleDetailBoundarySwipe = (direction, scrollEl) => {
-    if (!scrollEl) return
-
-    const atTop = scrollEl.scrollTop <= 1
-    const atBottom =
-      scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 2
-
-    if (direction === 'down' && atBottom) {
-      changeCalendarWithLock('expand')
-      return
-    }
-
-    if (direction === 'up' && atTop) {
-      changeCalendarWithLock('collapse')
-    }
-  }
+  const branchName = safeBranch?.name || 'ยังไม่พบข้อมูลสาขา'
+  const branchAddress = safeBranch?.address || 'ปฏิทินประจำสาขา'
 
   const goPrevMonth = () => {
     setCalendarDate((prev) => moment(prev).subtract(1, 'month').toDate())
@@ -342,6 +292,7 @@ function UserCalendarPage() {
     const today = new Date()
     setCalendarDate(today)
     setSelectedDate(today)
+    setDayModalOpen(true)
   }
 
   const selectDate = (date) => {
@@ -352,12 +303,20 @@ function UserCalendarPage() {
       setCalendarDate(nextDate)
     }
 
-    if (calendarMode === 'expanded') {
-      setDayModalOpen(true)
-    }
+    setDayModalOpen(true)
   }
 
   const openAddNoteModal = (date = selectedDate) => {
+    if (!canCreateNote) {
+      createAlert(
+        'error',
+        isAdminOrOwner
+          ? 'บัญชีนี้ยังไม่มีสาขาที่ใช้งานได้ จึงเพิ่ม Note ไม่ได้'
+          : 'เฉพาะ Admin หรือ Owner เท่านั้นที่เพิ่ม Note ได้'
+      )
+      return
+    }
+
     setNoteForm({
       date: moment(date || new Date()).format('YYYY-MM-DD'),
       title: '',
@@ -375,8 +334,13 @@ function UserCalendarPage() {
   const submitNote = async (e) => {
     e.preventDefault()
 
-    if (!noteForm.date || !noteForm.title) {
+    if (!noteForm.date || !noteForm.title.trim()) {
       createAlert('error', 'กรุณากรอกวันที่และหัวข้อ')
+      return
+    }
+
+    if (!canCreateNote) {
+      createAlert('error', 'ไม่สามารถเพิ่ม Note ได้')
       return
     }
 
@@ -385,8 +349,9 @@ function UserCalendarPage() {
 
       const payload = {
         date: noteForm.date,
-        title: noteForm.title,
-        note: noteForm.note,
+        title: noteForm.title.trim(),
+        note: noteForm.note?.trim() || null,
+        branchId: Number(safeBranchId),
       }
 
       await axios.post(`${API_URL}/admin/calendar-note`, payload, {
@@ -395,153 +360,155 @@ function UserCalendarPage() {
         },
       })
 
-      createAlert('success', 'เพิ่ม note สำเร็จ')
+      createAlert('success', 'เพิ่ม Note สำเร็จ')
       closeNoteModal()
       await fetchCalendar()
     } catch (error) {
       console.log(error)
+
       createAlert(
         'error',
-        error.response?.data?.message || 'บันทึก note ไม่สำเร็จ'
+        error.response?.data?.message || 'บันทึก Note ไม่สำเร็จ'
       )
     } finally {
       setNoteLoading(false)
     }
   }
 
+  const deleteNote = async (event) => {
+    if (!canDeleteNote) {
+      createAlert('error', 'เฉพาะ Admin หรือ Owner เท่านั้นที่ลบ Note ได้')
+      return
+    }
+
+    if (!event || event.type !== 'note') {
+      createAlert('error', 'ลบได้เฉพาะ Note เท่านั้น')
+      return
+    }
+
+    const noteId = event.eventId || event.raw?.id
+
+    if (!noteId) {
+      createAlert('error', 'ไม่พบ id ของ Note')
+      return
+    }
+
+    try {
+      setDeleteNoteLoading(noteId)
+
+      await axios.delete(`${API_URL}/admin/calendar-note/${noteId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      createAlert('success', 'ลบ Note สำเร็จ')
+
+      setEvents((prev) =>
+        prev.filter((item) => {
+          if (item.type !== 'note') return true
+          return String(item.eventId) !== String(noteId)
+        })
+      )
+
+      await fetchCalendar()
+    } catch (error) {
+      console.log(error)
+
+      createAlert(
+        'error',
+        error.response?.data?.message || 'ลบ Note ไม่สำเร็จ'
+      )
+    } finally {
+      setDeleteNoteLoading(null)
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-0 overflow-hidden bg-[#F5F8FD] text-[#0F172A]">
-      <div className="mx-auto flex h-full w-full max-w-md flex-col px-4 pb-[118px] pt-3">
-        <CompactTopBar
-          branchName={branchName}
-          branchAddress={branchAddress}
-          profileLoading={profileLoading}
-        />
+    <div className="min-h-dvh bg-[#F5F8FD] px-4 pb-40 pt-5 text-[#0F172A] lg:px-5 lg:pb-8 lg:pt-4 xl:px-6">
+      <div className="mx-auto w-full max-w-md space-y-4 lg:max-w-5xl lg:space-y-3 xl:max-w-6xl">
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="mt-1 text-2xl font-black tracking-tight lg:text-2xl">
+              ตารางงาน
+            </h1>
 
-        <section
-          onWheel={handleCalendarWheel}
-          onTouchStart={handleCalendarTouchStart}
-          onTouchEnd={handleCalendarTouchEnd}
-          className="shrink-0 select-none"
-          style={{
-            touchAction: 'none',
-          }}
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={goPrevMonth}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm active:scale-95"
-            >
-              <ChevronLeft size={19} />
-            </button>
+            <p className="mt-1 text-sm font-semibold text-slate-500 lg:text-xs">
+              ปฏิทินประจำสาขาของคุณ
+            </p>
+          </div>
+        </header>
 
-            <div className="text-center">
-              <h2 className="text-xl font-black leading-tight">
-                {moment(calendarDate).format('MMMM YYYY')}
+        <section className="rounded-[1.7rem] bg-gradient-to-br from-[#0057E7] via-[#0052D9] to-[#003BB5] p-4 text-white shadow-[0_14px_34px_rgba(37,99,235,0.28)] lg:rounded-[1.25rem] lg:p-3">
+          <div className="flex items-center gap-3 lg:gap-2.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 lg:h-9 lg:w-9 lg:rounded-xl">
+              <Building2 size={22} className="lg:h-[18px] lg:w-[18px]" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-white/65 lg:text-[10px]">
+                สาขาของฉัน
+              </p>
+
+              <h2 className="truncate text-lg font-black lg:text-base">
+                {profileLoading ? 'กำลังโหลดข้อมูลสาขา...' : branchName}
               </h2>
 
-              <div className="mt-0.5 flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={goToday}
-                  className="text-[11px] font-black text-blue-600"
-                >
-                  วันนี้
-                </button>
-
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-
-                <span className="text-[11px] font-black text-slate-400">
-                  {getModeLabel(calendarMode)}
-                </span>
-              </div>
+              <p className="truncate text-xs font-semibold text-white/65 lg:text-[10px]">
+                {profileLoading ? 'กรุณารอสักครู่' : branchAddress}
+              </p>
             </div>
-
-            <button
-              type="button"
-              onClick={goNextMonth}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm active:scale-95"
-            >
-              <ChevronRight size={19} />
-            </button>
           </div>
-
-          <div className="mb-2 flex justify-center">
-            <div className="h-1.5 w-12 rounded-full bg-slate-300" />
-          </div>
-
-          {loading ? (
-            <div
-              className={`flex items-center justify-center transition-all duration-300 ${
-                calendarMode === 'expanded'
-                  ? 'h-[500px]'
-                  : calendarMode === 'medium'
-                    ? 'h-[340px]'
-                    : 'h-[92px]'
-              }`}
-            >
-              <Loader2 className="animate-spin text-blue-600" size={26} />
-            </div>
-          ) : (
-            <div
-              className={`grid grid-cols-7 text-center transition-all duration-300 ${
-                calendarMode === 'compact'
-                  ? 'gap-x-1 gap-y-1'
-                  : 'gap-x-1 gap-y-1.5'
-              }`}
-            >
-              {WEEK_DAYS.map((day) => (
-                <div
-                  key={day}
-                  className={`pb-1.5 text-[11px] font-black ${
-                    day === 'อา'
-                      ? 'text-red-500'
-                      : day === 'ส'
-                        ? 'text-blue-500'
-                        : 'text-slate-400'
-                  }`}
-                >
-                  {day}
-                </div>
-              ))}
-
-              {visibleCalendarDays.map((item) => (
-                <CalendarCell
-                  key={item.date}
-                  item={item}
-                  mode={calendarMode}
-                  onClick={() => selectDate(item.date)}
-                />
-              ))}
-            </div>
-          )}
         </section>
 
-        {calendarMode !== 'expanded' && (
-          <div className="mt-3 min-h-0 flex-1 overflow-hidden">
-            <DayDetailSection
-              selectedDate={selectedDate}
-              events={selectedDayEvents}
-              onAddNote={() => openAddNoteModal(selectedDate)}
-              onBoundaryWheel={handleDetailBoundaryWheel}
-              onBoundarySwipe={handleDetailBoundarySwipe}
+        {!profileLoading && !canUseCalendar && (
+          <section className="flex items-start gap-2 rounded-2xl bg-orange-50 px-3.5 py-3 text-orange-600 lg:rounded-xl lg:px-3 lg:py-2.5">
+            <AlertCircle
+              size={19}
+              strokeWidth={2.6}
+              className="mt-0.5 lg:h-4 lg:w-4"
             />
-          </div>
-        )}
-      </div>
 
-      <FloatingAddNoteButton
-        selectedDate={selectedDate}
-        onClick={() => openAddNoteModal(selectedDate)}
-      />
+            <div>
+              <p className="text-sm font-black lg:text-xs">
+                ยังไม่สามารถใช้ปฏิทินได้
+              </p>
+
+              <p className="mt-0.5 text-xs font-bold leading-5 lg:text-[10px] lg:leading-4">
+                บัญชีนี้ยังไม่มีสาขาที่ใช้งานได้ หรือสาขาถูกปิดใช้งานแล้ว
+              </p>
+            </div>
+          </section>
+        )}
+
+        <section className="pt-1 lg:rounded-[1.25rem] lg:bg-white lg:p-3 lg:shadow-[0_8px_22px_rgba(15,23,42,0.045)]">
+          <CalendarHeader
+            calendarDate={calendarDate}
+            onPrev={goPrevMonth}
+            onNext={goNextMonth}
+            onToday={goToday}
+          />
+
+          {loading ? (
+            <div className="flex h-[360px] items-center justify-center lg:h-[340px]">
+              <Loader2 className="animate-spin text-blue-600" size={28} />
+            </div>
+          ) : (
+            <CalendarGrid days={calendarDays} onDateClick={selectDate} />
+          )}
+        </section>
+      </div>
 
       {dayModalOpen && (
         <DayDetailModal
           selectedDate={selectedDate}
           events={selectedDayEvents}
+          canCreateNote={canCreateNote}
+          canDeleteNote={canDeleteNote}
+          deleteNoteLoading={deleteNoteLoading}
           onClose={() => setDayModalOpen(false)}
           onAddNote={() => openAddNoteModal(selectedDate)}
+          onDeleteNote={deleteNote}
         />
       )}
 
@@ -550,6 +517,7 @@ function UserCalendarPage() {
           noteForm={noteForm}
           setNoteForm={setNoteForm}
           noteLoading={noteLoading}
+          branchName={branchName}
           onClose={closeNoteModal}
           onSubmit={submitNote}
         />
@@ -558,85 +526,111 @@ function UserCalendarPage() {
   )
 }
 
-function CompactTopBar({ branchName, branchAddress, profileLoading }) {
+function CalendarHeader({ calendarDate, onPrev, onNext, onToday }) {
   return (
-    <section className="mb-2 shrink-0 rounded-[1.3rem] bg-gradient-to-br from-[#0057E7] via-[#0052D9] to-[#003BB5] px-3.5 py-3 text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-black text-white/65">WorkPal</p>
-          <h1 className="text-[20px] font-black leading-tight tracking-tight">
-            ตารางงาน
-          </h1>
-        </div>
+    <div className="mb-4 flex items-center justify-between lg:mb-3">
+      <button
+        type="button"
+        onClick={onPrev}
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-[0_6px_18px_rgba(15,23,42,0.08)] active:scale-95 lg:h-8 lg:w-8 lg:bg-slate-50"
+      >
+        <ChevronLeft size={20} className="lg:h-4 lg:w-4" />
+      </button>
 
-        <div className="flex max-w-[55%] items-center gap-2 rounded-2xl bg-white/12 px-2.5 py-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15">
-            <Building2 size={17} />
-          </div>
+      <div className="text-center">
+        <h2 className="text-xl font-black lg:text-lg">
+          {formatThaiMonthYear(calendarDate)}
+        </h2>
 
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-black leading-tight">
-              {profileLoading ? 'กำลังโหลด...' : branchName}
-            </p>
-            <p className="truncate text-[10px] font-semibold leading-tight text-white/60">
-              {profileLoading ? 'กรุณารอสักครู่' : branchAddress}
-            </p>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={onToday}
+          className="mt-1 text-xs font-black text-blue-600 lg:text-[10px]"
+        >
+          วันนี้
+        </button>
       </div>
-    </section>
+
+      <button
+        type="button"
+        onClick={onNext}
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-[0_6px_18px_rgba(15,23,42,0.08)] active:scale-95 lg:h-8 lg:w-8 lg:bg-slate-50"
+      >
+        <ChevronRight size={20} className="lg:h-4 lg:w-4" />
+      </button>
+    </div>
   )
 }
 
-function CalendarCell({ item, mode, onClick }) {
-  const isExpanded = mode === 'expanded'
-  const isMedium = mode === 'medium'
-  const isCompact = mode === 'compact'
+function CalendarGrid({ days, onDateClick }) {
+  return (
+    <div className="grid grid-cols-7 gap-x-1 gap-y-2 text-center lg:gap-x-1.5 lg:gap-y-1.5">
+      {WEEK_DAYS.map((day) => (
+        <div
+          key={day}
+          className={`pb-2 text-xs font-black lg:pb-1.5 lg:text-[10px] ${
+            day === 'อา'
+              ? 'text-red-500'
+              : day === 'ส'
+                ? 'text-blue-500'
+                : 'text-slate-400'
+          }`}
+        >
+          {day}
+        </div>
+      ))}
 
-  const maxEvents = isExpanded ? 4 : isMedium ? 2 : 1
-  const visibleEvents = item.events.slice(0, maxEvents)
+      {days.map((item) => (
+        <CalendarCell
+          key={item.date}
+          item={item}
+          onClick={() => onDateClick(item.date)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function CalendarCell({ item, onClick }) {
+  const visibleEvents = item.events.slice(0, 2)
   const extraCount = item.events.length - visibleEvents.length
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex flex-col items-center justify-start overflow-hidden border border-transparent px-0.5 py-1 transition-all duration-300 active:scale-95 ${
-        isExpanded
-          ? 'h-[78px] rounded-[0.95rem]'
-          : isMedium
-            ? 'h-[57px] rounded-[0.85rem]'
-            : 'h-[48px] rounded-[0.8rem]'
-      } ${
+      className={`relative flex h-[92px] flex-col items-center justify-start overflow-hidden border border-transparent px-0.5 py-1 transition-all active:scale-95 lg:h-[72px] lg:px-1 lg:py-1 ${
         item.isSelected
-          ? 'border-slate-400 bg-white text-slate-900 shadow-[0_6px_14px_rgba(15,23,42,0.10)]'
+          ? 'rounded-[0.95rem] border-blue-500 bg-white text-slate-900 shadow-[0_8px_18px_rgba(37,99,235,0.16)] lg:rounded-xl'
           : item.isToday
-            ? 'bg-blue-50 text-blue-600'
+            ? 'rounded-[0.95rem] bg-blue-50 text-blue-600 lg:rounded-xl'
             : item.isCurrentMonth
-              ? 'bg-white/45 text-slate-900'
-              : 'bg-transparent text-slate-300'
+              ? 'rounded-[0.95rem] bg-white/75 text-slate-900 shadow-[0_4px_12px_rgba(15,23,42,0.04)] lg:rounded-xl lg:bg-slate-50/80'
+              : 'rounded-[0.95rem] bg-transparent text-slate-300 lg:rounded-xl'
       }`}
     >
       <span
-        className={`flex shrink-0 items-center justify-center rounded-lg font-black ${
-          isCompact ? 'h-6 w-6 text-xs' : 'h-6 w-6 text-xs'
-        } ${item.isSelected ? 'bg-slate-900 text-white' : ''}`}
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-black lg:h-6 lg:w-6 lg:text-[11px] ${
+          item.isSelected ? 'bg-blue-600 text-white' : ''
+        }`}
       >
         {item.day}
       </span>
 
       {visibleEvents.length > 0 && (
-        <div className="mt-0.5 flex w-full min-w-0 flex-col items-center gap-0.5">
+        <div className="mt-1 flex w-full min-w-0 flex-col items-center gap-0.5">
           {visibleEvents.map((event) => (
-            <EventMiniBadge
-              key={event.id}
-              event={event}
-              compact={!isExpanded}
-            />
+            <EventMiniBadge key={event.id} event={event} />
           ))}
 
           {extraCount > 0 && (
-            <span className="max-w-full rounded-md bg-slate-200 px-1 py-0.5 text-[8px] font-black leading-none text-slate-600">
+            <span
+              className={`block w-full max-w-full truncate rounded px-1 py-[1px] text-left text-[7px] font-black leading-[10px] lg:text-[8px] lg:leading-[10px] ${
+                item.isSelected
+                  ? 'bg-slate-100 text-slate-700'
+                  : 'bg-slate-200 text-slate-600'
+              }`}
+            >
               +{extraCount}
             </span>
           )}
@@ -646,118 +640,30 @@ function CalendarCell({ item, mode, onClick }) {
   )
 }
 
-function EventMiniBadge({ event, compact }) {
+function EventMiniBadge({ event }) {
   const config = getMiniEventConfig(event.type)
+  const text = event.title || config.fallbackLabel
 
   return (
     <span
-      className={`block w-full truncate rounded px-1 py-0.5 text-left font-black leading-tight ${
-        compact ? 'text-[7px]' : 'text-[8px]'
-      } ${config.className}`}
-      title={event.title}
+      className={`block w-full max-w-full truncate rounded px-1 py-[1px] text-left text-[7px] font-black leading-[10px] lg:text-[8px] lg:leading-[10px] ${config.className}`}
+      title={text}
     >
-      {compact ? config.label : event.title}
+      {text}
     </span>
   )
 }
 
-function DayDetailSection({
+function DayDetailModal({
   selectedDate,
   events,
+  canCreateNote,
+  canDeleteNote,
+  deleteNoteLoading,
+  onClose,
   onAddNote,
-  onBoundaryWheel,
-  onBoundarySwipe,
+  onDeleteNote,
 }) {
-  const scrollRef = useRef(null)
-  const detailTouchStartY = useRef(null)
-
-  const handleWheel = (e) => {
-    e.stopPropagation()
-    onBoundaryWheel(e, scrollRef.current)
-  }
-
-  const handleTouchStart = (e) => {
-    detailTouchStartY.current = e.touches[0].clientY
-  }
-
-  const handleTouchEnd = (e) => {
-    if (detailTouchStartY.current === null) return
-
-    const endY = e.changedTouches[0].clientY
-    const diff = endY - detailTouchStartY.current
-
-    if (Math.abs(diff) < 42) {
-      detailTouchStartY.current = null
-      return
-    }
-
-    // โทรศัพท์:
-    // ลากนิ้วลง = ขยาย
-    // ลากนิ้วขึ้น = ย่อ
-    if (diff > 0) {
-      onBoundarySwipe('down', scrollRef.current)
-    } else {
-      onBoundarySwipe('up', scrollRef.current)
-    }
-
-    detailTouchStartY.current = null
-  }
-
-  return (
-    <section className="flex h-full min-h-0 flex-col">
-      <div className="mb-2 flex shrink-0 items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black text-blue-600">
-            {moment(selectedDate).format('dddd')}
-          </p>
-          <h2 className="mt-0.5 text-2xl font-black text-slate-900">
-            {moment(selectedDate).format('D MMM')}
-          </h2>
-          <p className="mt-0.5 text-xs font-semibold text-slate-400">
-            {events.length} รายการในวันนี้
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onAddNote}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-2xl bg-blue-50 px-3 text-xs font-black text-blue-600 active:scale-95"
-        >
-          <Plus size={14} strokeWidth={3} />
-          Note
-        </button>
-      </div>
-
-      <div
-        ref={scrollRef}
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        className="min-h-0 flex-1 overflow-y-auto pr-1 [-webkit-overflow-scrolling:touch]"
-      >
-        {events.length === 0 ? (
-          <div className="flex h-full min-h-[120px] flex-col items-center justify-center text-center">
-            <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-sm">
-              <CalendarDays size={21} className="text-slate-400" />
-            </div>
-            <h3 className="font-black text-slate-700">ไม่มีรายการวันนี้</h3>
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              วันนี้ยังไม่มีวันหยุด วันลา หรือ Note
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2.5 pb-3">
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  )
-}
-
-function DayDetailModal({ selectedDate, events, onClose, onAddNote }) {
   return (
     <div
       onClick={onClose}
@@ -765,17 +671,19 @@ function DayDetailModal({ selectedDate, events, onClose, onAddNote }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-[1.8rem] bg-white p-5 shadow-2xl"
+        className="w-full max-w-md rounded-[1.8rem] bg-white p-5 shadow-2xl lg:max-w-sm lg:rounded-[1.35rem] lg:p-4"
       >
-        <div className="mb-5 flex items-start justify-between gap-3">
+        <div className="mb-5 flex items-start justify-between gap-3 lg:mb-4">
           <div>
-            <p className="text-sm font-black text-blue-600">
-              {moment(selectedDate).format('dddd')}
+            <p className="text-sm font-black text-blue-600 lg:text-xs">
+              {formatThaiWeekDay(selectedDate)}
             </p>
-            <h2 className="mt-1 text-2xl font-black text-slate-900">
-              {moment(selectedDate).format('DD MMMM YYYY')}
+
+            <h2 className="mt-1 text-2xl font-black text-slate-900 lg:text-xl">
+              {formatThaiFullDate(selectedDate)}
             </h2>
-            <p className="mt-1 text-sm font-semibold text-slate-400">
+
+            <p className="mt-1 text-sm font-semibold text-slate-400 lg:text-xs">
               {events.length} รายการในวันนี้
             </p>
           </div>
@@ -783,35 +691,50 @@ function DayDetailModal({ selectedDate, events, onClose, onAddNote }) {
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 lg:h-8 lg:w-8"
           >
-            <X size={20} />
+            <X size={20} className="lg:h-4 lg:w-4" />
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onAddNote}
-          className="mb-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] active:scale-[0.98]"
-        >
-          <Plus size={18} strokeWidth={3} />
-          เพิ่ม Note วันนี้
-        </button>
+        {canCreateNote && (
+          <button
+            type="button"
+            onClick={onAddNote}
+            className="mb-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] active:scale-[0.98] lg:h-10 lg:rounded-xl lg:text-xs"
+          >
+            <Plus size={18} strokeWidth={3} className="lg:h-4 lg:w-4" />
+            เพิ่ม Note วันนี้
+          </button>
+        )}
 
         {events.length === 0 ? (
-          <div className="py-8 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#F5F8FD]">
-              <CalendarDays size={24} className="text-slate-400" />
+          <div className="py-8 text-center lg:py-6">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#F5F8FD] lg:h-11 lg:w-11">
+              <CalendarDays
+                size={24}
+                className="text-slate-400 lg:h-5 lg:w-5"
+              />
             </div>
-            <h3 className="font-black text-slate-700">ไม่มีรายการวันนี้</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-400">
+
+            <h3 className="font-black text-slate-700 lg:text-sm">
+              ไม่มีรายการวันนี้
+            </h3>
+
+            <p className="mt-1 text-sm font-semibold text-slate-400 lg:text-xs">
               วันนี้ยังไม่มีวันหยุด วันลา หรือ Note
             </p>
           </div>
         ) : (
-          <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+          <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1 lg:space-y-2">
             {events.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard
+                key={event.id}
+                event={event}
+                canDeleteNote={canDeleteNote}
+                deleteNoteLoading={deleteNoteLoading}
+                onDeleteNote={onDeleteNote}
+              />
             ))}
           </div>
         )}
@@ -820,26 +743,11 @@ function DayDetailModal({ selectedDate, events, onClose, onAddNote }) {
   )
 }
 
-function FloatingAddNoteButton({ selectedDate, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="fixed bottom-[104px] left-1/2 z-40 flex h-14 w-[260px] -translate-x-1/2 items-center justify-between rounded-full bg-white px-5 text-slate-500 shadow-[0_10px_30px_rgba(15,23,42,0.18)] active:scale-[0.98] md:hidden"
-    >
-      <span className="text-base font-black">
-        เพิ่มวันที่ {moment(selectedDate).format('D MMM')}
-      </span>
-
-      <Plus size={30} strokeWidth={2.2} className="text-slate-900" />
-    </button>
-  )
-}
-
 function NoteModal({
   noteForm,
   setNoteForm,
   noteLoading,
+  branchName,
   onClose,
   onSubmit,
 }) {
@@ -851,54 +759,68 @@ function NoteModal({
       <form
         onSubmit={onSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-[1.8rem] bg-white p-5 shadow-2xl"
+        className="w-full max-w-md rounded-[1.8rem] bg-white p-5 shadow-2xl lg:max-w-sm lg:rounded-[1.35rem] lg:p-4"
       >
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-5 flex items-center justify-between lg:mb-4">
           <div>
-            <p className="text-sm font-black text-blue-600">Calendar Note</p>
-            <h2 className="mt-1 text-xl font-black text-slate-900">
+            <p className="text-sm font-black text-blue-600 lg:text-xs">
+              Calendar Note
+            </p>
+
+            <h2 className="mt-1 text-xl font-black text-slate-900 lg:text-lg">
               เพิ่ม Note
             </h2>
+
+            <p className="mt-1 text-xs font-bold text-slate-400 lg:text-[10px]">
+              สาขา: {branchName}
+            </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 lg:h-8 lg:w-8"
           >
-            <X size={20} />
+            <X size={20} className="lg:h-4 lg:w-4" />
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:space-y-3">
           <div>
-            <p className="mb-2 text-xs font-black text-slate-400">วันที่</p>
+            <p className="mb-2 text-xs font-black text-slate-400 lg:mb-1.5 lg:text-[10px]">
+              วันที่
+            </p>
+
             <input
               type="date"
               value={noteForm.date}
               onChange={(e) =>
                 setNoteForm({ ...noteForm, date: e.target.value })
               }
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-[#F5F8FD] px-4 text-sm font-bold text-slate-800 outline-none focus:border-blue-500"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-[#F5F8FD] px-4 text-sm font-bold text-slate-800 outline-none focus:border-blue-500 lg:h-10 lg:rounded-xl lg:px-3 lg:text-xs"
             />
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-black text-slate-400">หัวข้อ</p>
+            <p className="mb-2 text-xs font-black text-slate-400 lg:mb-1.5 lg:text-[10px]">
+              หัวข้อ
+            </p>
+
             <input
               value={noteForm.title}
               onChange={(e) =>
                 setNoteForm({ ...noteForm, title: e.target.value })
               }
               placeholder="เช่น ประชุมทีม / ทำความสะอาดร้าน"
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-[#F5F8FD] px-4 text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-500"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-[#F5F8FD] px-4 text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-500 lg:h-10 lg:rounded-xl lg:px-3 lg:text-xs"
             />
           </div>
 
           <div>
-            <p className="mb-2 text-xs font-black text-slate-400">
+            <p className="mb-2 text-xs font-black text-slate-400 lg:mb-1.5 lg:text-[10px]">
               รายละเอียด
             </p>
+
             <textarea
               value={noteForm.note}
               onChange={(e) =>
@@ -906,16 +828,16 @@ function NoteModal({
               }
               rows={4}
               placeholder="รายละเอียดเพิ่มเติม"
-              className="w-full resize-none rounded-2xl border border-slate-200 bg-[#F5F8FD] px-4 py-3 text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-500"
+              className="w-full resize-none rounded-2xl border border-slate-200 bg-[#F5F8FD] px-4 py-3 text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-500 lg:rounded-xl lg:px-3 lg:py-2.5 lg:text-xs"
             />
           </div>
         </div>
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex gap-3 lg:mt-4 lg:gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-500"
+            className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-500 lg:rounded-xl lg:px-3 lg:py-2.5 lg:text-xs"
           >
             ยกเลิก
           </button>
@@ -923,7 +845,7 @@ function NoteModal({
           <button
             type="submit"
             disabled={noteLoading}
-            className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] disabled:opacity-60"
+            className="flex-1 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.26)] disabled:opacity-60 lg:rounded-xl lg:px-3 lg:py-2.5 lg:text-xs"
           >
             {noteLoading ? 'กำลังบันทึก...' : 'บันทึก'}
           </button>
@@ -933,13 +855,18 @@ function NoteModal({
   )
 }
 
-function EventCard({ event }) {
+function EventCard({ event, canDeleteNote, deleteNoteLoading, onDeleteNote }) {
   const config = getEventConfig(event.type)
+  const noteId = event.eventId || event.raw?.id
+  const canShowDelete = canDeleteNote && event.type === 'note'
+  const isDeleting = String(deleteNoteLoading) === String(noteId)
 
   return (
-    <div className={`flex gap-3 rounded-[1.3rem] p-3 ${config.rowClass}`}>
+    <div
+      className={`flex gap-3 rounded-[1.3rem] p-3 lg:gap-2.5 lg:rounded-xl lg:p-2.5 ${config.rowClass}`}
+    >
       <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${config.iconClass}`}
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl lg:h-9 lg:w-9 lg:rounded-xl ${config.iconClass}`}
       >
         {config.icon}
       </div>
@@ -947,23 +874,38 @@ function EventCard({ event }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-slate-900">
+            <p className="truncate text-sm font-black text-slate-900 lg:text-xs">
               {event.title}
             </p>
-            <p className="mt-0.5 text-xs font-bold text-slate-500">
+
+            <p className="mt-0.5 text-xs font-bold text-slate-500 lg:text-[10px]">
               {config.label} · {event.branchName || 'สาขา'}
             </p>
           </div>
 
-          <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-black ${config.badgeClass}`}
-          >
-            {config.shortLabel}
-          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {canShowDelete && (
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDeleteNote(event)
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-500 active:scale-95 disabled:opacity-60 lg:h-7 lg:w-7"
+              >
+                {isDeleting ? (
+                  <Loader2 size={15} className="animate-spin lg:h-3.5 lg:w-3.5" />
+                ) : (
+                  <Trash2 size={15} strokeWidth={2.7} className="lg:h-3.5 lg:w-3.5" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {event.type === 'note' && event.raw?.note && (
-          <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-600">
+          <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-600 lg:text-xs">
             {event.raw.note}
           </p>
         )}
@@ -975,20 +917,20 @@ function EventCard({ event }) {
 function getMiniEventConfig(type) {
   if (type === 'holiday') {
     return {
-      label: 'หยุด',
+      fallbackLabel: 'วันหยุด',
       className: 'bg-emerald-100 text-emerald-800',
     }
   }
 
   if (type === 'note') {
     return {
-      label: 'NOTE',
+      fallbackLabel: 'Note',
       className: 'bg-sky-100 text-sky-700',
     }
   }
 
   return {
-    label: 'ลา',
+    fallbackLabel: 'ลางาน',
     className: 'bg-orange-100 text-orange-700',
   }
 }
@@ -998,7 +940,7 @@ function getEventConfig(type) {
     return {
       label: 'วันหยุดสาขา',
       shortLabel: 'หยุด',
-      icon: <CalendarDays size={20} />,
+      icon: <CalendarDays size={20} className="lg:h-4 lg:w-4" />,
       rowClass: 'bg-emerald-50',
       iconClass: 'bg-white text-emerald-600',
       badgeClass: 'bg-white text-emerald-600',
@@ -1009,7 +951,7 @@ function getEventConfig(type) {
     return {
       label: 'Note',
       shortLabel: 'Note',
-      icon: <StickyNote size={20} />,
+      icon: <StickyNote size={20} className="lg:h-4 lg:w-4" />,
       rowClass: 'bg-sky-50',
       iconClass: 'bg-white text-blue-600',
       badgeClass: 'bg-white text-blue-600',
@@ -1019,17 +961,11 @@ function getEventConfig(type) {
   return {
     label: 'พนักงานลางาน',
     shortLabel: 'ลา',
-    icon: <Umbrella size={20} />,
+    icon: <Umbrella size={20} className="lg:h-4 lg:w-4" />,
     rowClass: 'bg-orange-50',
     iconClass: 'bg-white text-orange-500',
-    badgeClass: 'bg-white text-orange-500',
+    badgeClass: 'bg-orange-50 text-orange-500',
   }
-}
-
-function getModeLabel(mode) {
-  if (mode === 'expanded') return 'เดือนเต็ม'
-  if (mode === 'medium') return 'เดือนย่อ'
-  return 'สัปดาห์'
 }
 
 export default UserCalendarPage
