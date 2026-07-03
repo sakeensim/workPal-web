@@ -16,6 +16,8 @@ import {
   XCircle,
   CalendarCheck2,
   CalendarDays,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 
 import useAuthStore from '../store/auth-store'
@@ -44,6 +46,7 @@ function Home() {
   const [activeNormal, setActiveNormal] = useState(null)
   const [activeOT, setActiveOT] = useState(null)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [showRemainingSalary, setShowRemainingSalary] = useState(false)
 
   const monthLabel = moment(now).locale('th').format('MMMM')
   const remainingDayOffs = Number(profile?.remainingDayOffs || 0)
@@ -433,6 +436,15 @@ function Home() {
       ? Math.max(Number(summary.finalSalary || 0), 0)
       : Math.max(baseSalary - totalSalaryAdvance, 0)
 
+  const remainingSalaryDisplay = showRemainingSalary
+    ? `${remainingSalary.toLocaleString()} บาท`
+    : '...'
+
+  const toggleRemainingSalary = (event) => {
+    event.stopPropagation()
+    setShowRemainingSalary((prev) => !prev)
+  }
+
   const totalOtHours = Number(summary.totalOtMinutes || 0) / 60
 
   const selectedShift = shifts.find(
@@ -739,8 +751,11 @@ function Home() {
               <OverviewBox
                 icon={<Wallet size={14} />}
                 label="เงินเหลือ"
-                value={`${remainingSalary.toLocaleString()} บาท`}
+                value={remainingSalaryDisplay}
                 color="blue"
+                canToggleValue
+                isValueVisible={showRemainingSalary}
+                onToggleValue={toggleRemainingSalary}
               />
 
               <OverviewBox
@@ -962,8 +977,11 @@ function Home() {
               <OverviewBox
                 icon={<Wallet size={14} />}
                 label="เงินเหลือ"
-                value={`${remainingSalary.toLocaleString()} บาท`}
+                value={remainingSalaryDisplay}
                 color="blue"
+                canToggleValue
+                isValueVisible={showRemainingSalary}
+                onToggleValue={toggleRemainingSalary}
               />
               <OverviewBox
                 icon={<BriefcaseBusiness size={14} />}
@@ -1104,22 +1122,42 @@ function Card({ title, subtitle, action, onAction, children }) {
   )
 }
 
-function OverviewBox({ icon, label, value, color }) {
+function OverviewBox({
+  icon,
+  label,
+  value,
+  color,
+  canToggleValue = false,
+  isValueVisible = true,
+  onToggleValue,
+}) {
   const iconColor = getStatIconColor(color)
+  const EyeIcon = isValueVisible ? EyeOff : Eye
 
   return (
-    <div className="rounded-[0.85rem] border border-slate-200 bg-white p-2 shadow-[0_6px_14px_rgba(15,23,42,0.035)] lg:rounded-[0.85rem] lg:p-2">
+    <div className="relative rounded-[0.85rem] border border-slate-200 bg-white p-2 shadow-[0_6px_14px_rgba(15,23,42,0.035)] lg:rounded-[0.85rem] lg:p-2">
       <div
         className={`mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white ${iconColor}`}
       >
         {icon}
       </div>
 
-      <p className="truncate text-[9px] font-bold leading-tight text-slate-700 lg:text-[10px]">
+      {canToggleValue && (
+        <button
+          type="button"
+          onClick={onToggleValue}
+          className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-50 text-slate-400 active:scale-95 lg:right-1.5 lg:top-1.5 lg:h-5 lg:w-5"
+          aria-label={isValueVisible ? 'ซ่อนเงินเหลือ' : 'แสดงเงินเหลือ'}
+        >
+          <EyeIcon size={12} strokeWidth={2.7} className="lg:h-3 lg:w-3" />
+        </button>
+      )}
+
+      <p className="truncate text-[8px] font-bold leading-tight text-slate-700 lg:text-[9px]">
         {label}
       </p>
 
-      <p className="mt-0.5 truncate text-[12px] font-black text-slate-950 lg:text-sm">
+      <p className="mt-0.5 truncate pr-4 text-[10px] font-black text-slate-950 lg:text-[11px]">
         {value}
       </p>
     </div>
