@@ -55,6 +55,10 @@ const THAI_WEEK_DAYS_FULL = [
   'วันเสาร์',
 ]
 
+const getArray = (value) => {
+  return Array.isArray(value) ? value : []
+}
+
 const formatThaiMonthYear = (date) => {
   const finalDate = moment(date)
   const monthName = THAI_MONTHS[finalDate.month()]
@@ -76,12 +80,294 @@ const formatThaiWeekDay = (date) => {
   return THAI_WEEK_DAYS_FULL[moment(date).day()]
 }
 
+const isDayOffEvent = (event) => {
+  const type = String(event?.type || '').toLowerCase()
+
+  return type !== 'holiday' && type !== 'note'
+}
+
+const getDayOffId = (event) => {
+  return event?.eventId || event?.raw?.id || event?.id || null
+}
+
+const getDayOffOwnerId = (event) => {
+  return (
+    event?.employeeId ||
+    event?.employeesId ||
+    event?.raw?.employeeId ||
+    event?.raw?.employeesId ||
+    event?.raw?.userId ||
+    event?.raw?.employee?.id ||
+    event?.raw?.employees?.id ||
+    null
+  )
+}
+
+const normalizeDayOffStatus = (status) => {
+  const value = String(status || 'PENDING').toUpperCase()
+
+  if (value === 'APPROVED') return 'APPROVED'
+  if (value === 'REJECTED') return 'REJECTED'
+  if (value === 'CANCELLED') return 'CANCELED'
+  if (value === 'CANCELED') return 'CANCELED'
+
+  return 'PENDING'
+}
+
+const getDayOffStatus = (event) => {
+  return normalizeDayOffStatus(event?.status || event?.raw?.status || 'PENDING')
+}
+
+const isPastDayOffEvent = (event) => {
+  if (!event?.date) return false
+
+  return moment(event.date).startOf('day').isBefore(moment().startOf('day'))
+}
+
+const isCancelableDayOffEvent = (event, currentUserId, isAdminOrOwner) => {
+  if (!isDayOffEvent(event)) return false
+
+  const status = getDayOffStatus(event)
+
+  if (status !== 'PENDING' && status !== 'APPROVED') return false
+  if (isPastDayOffEvent(event)) return false
+
+  const ownerId = getDayOffOwnerId(event)
+
+  if (!ownerId) {
+    return !isAdminOrOwner
+  }
+
+  return String(ownerId) === String(currentUserId)
+}
+
+const getCancelDayOffDisabledReason = (event, currentUserId, isAdminOrOwner) => {
+  const status = getDayOffStatus(event)
+
+  if (status !== 'PENDING' && status !== 'APPROVED') {
+    return 'คำขอนี้ไม่สามารถยกเลิกได้'
+  }
+
+  if (isPastDayOffEvent(event)) {
+    return 'ไม่สามารถยกเลิกวันลาที่ผ่านมาแล้ว'
+  }
+
+  const ownerId = getDayOffOwnerId(event)
+
+  if (ownerId && String(ownerId) !== String(currentUserId)) {
+    return 'ยกเลิกได้เฉพาะคำขอลาของตัวเอง'
+  }
+
+  if (!ownerId && isAdminOrOwner) {
+    return 'ไม่พบข้อมูลเจ้าของคำขอ จึงไม่สามารถยกเลิกจากหน้านี้ได้'
+  }
+
+  return 'ไม่สามารถยกเลิกคำขอนี้ได้'
+}
+
+const getDayOffStatusConfig = (status) => {
+  const value = normalizeDayOffStatus(status)
+
+  if (value === 'APPROVED') {
+    return {
+      label: 'อนุมัติแล้ว',
+      className: 'bg-emerald-50 text-emerald-600',
+    }
+  }
+
+  if (value === 'REJECTED') {
+    return {
+      label: 'ปฏิเสธ',
+      className: 'bg-red-50 text-red-500',
+    }
+  }
+
+  if (value === 'CANCELED' || value === 'CANCELLED') {
+    return {
+      label: 'ยกเลิกแล้ว',
+      className: 'bg-slate-100 text-slate-500',
+    }
+  }
+
+  return {
+    label: 'รออนุมัติ',
+    className: 'bg-orange-50 text-orange-600',
+  }
+}
+
+const getEmployeeDisplayName = (employee) => {
+  return (
+    [employee?.firstname, employee?.lastname].filter(Boolean).join(' ') ||
+    employee?.name ||
+    employee?.email ||
+    'พนักงาน'
+  )
+}
+
+const getHistoryDayOffItems = (payload) => {
+  const logs = payload?.logs || {}
+  const candidates = [
+    ...getArray(logs.dayOff),
+    ...getArray(logs.dayOffs),
+    ...getArray(logs.leaveRequests),
+    ...getArray(payload?.dayOff),
+    ...getArray(payload?.dayOffs),
+    ...getArray(payload?.leaveRequests),
+    ...getArray(payload?.requests),
+    ...getArray(payload?.data),
+    ...getArray(payload?.result),
+  ].filter(Boolean)
+
+  const map = new Map()
+
+  candidates.forEach((item) => {
+    const type = String(item.type || item.requestType || '').toLowerCase()
+    const looksLikeAdvance =
+      type.includes('salary') ||
+      type.includes('advance') ||
+      item.amount !== undefined
+
+    const looksLikeDayOff =
+      type.includes('dayoff') ||
+      type.includes('leave') ||
+      item.reason !== undefined ||
+      item.date !== undefined
+
+    if (looksLikeAdvance && !looksLikeDayOff) return
+
+    const status = normalizeDayOffStatus(item.status)
+    const date = item.date || item.requestDate || item.startDate || item.createdAt
+
+    if (!date) return
+    if (status === 'CANCELED' || status === 'REJECTED') return
+
+    const key =
+      item.id ||
+      item.dayOffId ||
+      item.requestId ||
+      `${moment(date).format('YYYY-MM-DD')}-${status}-${item.reason || ''}`
+
+    map.set(String(key), item)
+  })
+
+  return Array.from(map.values())
+}
+
+const normalizeOwnDayOffEvent = ({
+  item,
+  profile,
+  user,
+  safeBranch,
+  fallbackBranchId,
+}) => {
+  if (!item) return null
+
+  const date = item.date || item.requestDate || item.startDate || item.createdAt
+
+  if (!date) return null
+
+  const status = normalizeDayOffStatus(item.status)
+
+  if (status === 'CANCELED' || status === 'REJECTED') return null
+
+  const currentUserId =
+    profile?.id ||
+    user?.id ||
+    item.employeesId ||
+    item.employeeId ||
+    item.employee?.id ||
+    item.employees?.id ||
+    null
+
+  const eventId =
+    item.id ||
+    item.dayOffId ||
+    item.requestId ||
+    `own-${moment(date).format('YYYY-MM-DD')}-${status}`
+
+  const branchName =
+    item.branchName ||
+    item.branch?.name ||
+    item.employee?.branch?.name ||
+    item.employees?.branch?.name ||
+    safeBranch?.name ||
+    'สาขา'
+
+  const employeeName =
+    item.employeeName ||
+    item.name ||
+    getEmployeeDisplayName(item.employee || item.employees || profile || user)
+
+  return {
+    id: `dayoff-${eventId}`,
+    eventId,
+    title:
+      status === 'PENDING'
+        ? 'วันลาของฉัน (รออนุมัติ)'
+        : status === 'APPROVED'
+          ? 'วันลาของฉัน'
+          : 'คำขอวันลาของฉัน',
+    date: moment(date).format('YYYY-MM-DD'),
+    type: 'dayoff',
+    status,
+    employeeId: currentUserId,
+    employeesId: currentUserId,
+    branchId:
+      item.branchId ||
+      item.branch?.id ||
+      item.employee?.branchId ||
+      item.employees?.branchId ||
+      profile?.branchId ||
+      user?.branchId ||
+      safeBranch?.id ||
+      fallbackBranchId ||
+      null,
+    branchName,
+    raw: {
+      ...item,
+      employeeName,
+    },
+  }
+}
+
+const mergeOwnDayOffEvents = (fallbackEvents, historyEvents) => {
+  const map = new Map()
+
+  fallbackEvents.forEach((event) => {
+    if (!event) return
+
+    const key = getDayOffId(event) || `${event.date}-${getDayOffStatus(event)}`
+
+    map.set(String(key), event)
+  })
+
+  historyEvents.forEach((event) => {
+    if (!event) return
+
+    const key = getDayOffId(event) || `${event.date}-${getDayOffStatus(event)}`
+
+    map.set(String(key), event)
+  })
+
+  return Array.from(map.values())
+    .filter((event) => {
+      const status = getDayOffStatus(event)
+
+      return status !== 'REJECTED' && status !== 'CANCELED'
+    })
+    .sort((a, b) => {
+      return moment(a.date).valueOf() - moment(b.date).valueOf()
+    })
+}
+
+
 function UserCalendarPage() {
   const token = useAuthStore((state) => state.token)
   const user = useAuthStore((state) => state.user)
 
   const [profile, setProfile] = useState(null)
   const [events, setEvents] = useState([])
+  const [ownDayOffEvents, setOwnDayOffEvents] = useState([])
   const [branches, setBranches] = useState([])
   const [selectedBranchId, setSelectedBranchId] = useState('all')
   const [calendarDate, setCalendarDate] = useState(new Date())
@@ -96,6 +382,8 @@ function UserCalendarPage() {
   const [noteForm, setNoteForm] = useState(DEFAULT_NOTE_FORM)
   const [noteLoading, setNoteLoading] = useState(false)
   const [deleteNoteLoading, setDeleteNoteLoading] = useState(null)
+  const [cancelDayOffTarget, setCancelDayOffTarget] = useState(null)
+  const [cancelDayOffLoading, setCancelDayOffLoading] = useState(false)
 
   const role = String(profile?.role || user?.role || '').toUpperCase()
   const isAdminOrOwner = role === 'ADMIN' || role === 'OWNER'
@@ -249,19 +537,38 @@ function UserCalendarPage() {
         url = `${API_URL}/calendar/admin?${params.toString()}`
       }
 
-      const res = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const historyUrl = `${API_URL}/user/history?month=${month}&year=${year}`
 
-      const rawEvents = res.data.data || res.data.result || []
+      const [calendarResult, historyResult] = await Promise.allSettled([
+        axios.get(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        axios.get(historyUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ])
 
-      const mappedEvents = rawEvents
+      if (calendarResult.status === 'rejected') {
+        throw calendarResult.reason
+      }
+
+      const rawEvents =
+        calendarResult.value.data.data ||
+        calendarResult.value.data.result ||
+        []
+
+      const mappedCalendarEvents = rawEvents
         .map((item) => {
           const date = item.date || item.startDate || item.start
 
           if (!date) return null
+
+          const itemType = String(item.type || '').toLowerCase()
+          const isCalendarDayOff = itemType !== 'holiday' && itemType !== 'note'
 
           const branchName =
             item.branchName ||
@@ -278,29 +585,99 @@ function UserCalendarPage() {
           } else if (item.type === 'note') {
             title = item.title || 'Note'
           } else {
-            title = `${item.employeeName || item.name || 'พนักงาน'} ลางาน`
+            title = 'วันลาของฉัน'
           }
 
           return {
-            id: `${item.type}-${item.id}`,
+            id: `${item.type || 'dayoff'}-${item.id}`,
             eventId: item.id,
             title,
             date: moment(date).format('YYYY-MM-DD'),
-            type: item.type,
-            branchId: item.branchId || selectedCalendarBranchId || safeBranchId || null,
+            type: item.type || 'dayoff',
+            status: isCalendarDayOff
+              ? normalizeDayOffStatus(item.status || item.raw?.status || 'APPROVED')
+              : item.status || item.raw?.status || null,
+            employeeId:
+              item.employeeId ||
+              item.employeesId ||
+              item.userId ||
+              item.employee?.id ||
+              item.employees?.id ||
+              item.raw?.employeeId ||
+              item.raw?.employeesId ||
+              null,
+            employeesId:
+              item.employeesId ||
+              item.employeeId ||
+              item.userId ||
+              item.employee?.id ||
+              item.employees?.id ||
+              item.raw?.employeesId ||
+              item.raw?.employeeId ||
+              null,
+            branchId:
+              item.branchId ||
+              selectedCalendarBranchId ||
+              safeBranchId ||
+              null,
             branchName,
             raw: item,
           }
         })
         .filter(Boolean)
+        .filter((event) => {
+          if (!isDayOffEvent(event)) return true
 
-      setEvents(mappedEvents)
+          const status = getDayOffStatus(event)
+
+          return status !== 'REJECTED' && status !== 'CANCELED'
+        })
+
+      const calendarNonDayOffEvents = mappedCalendarEvents.filter((event) => {
+        return !isDayOffEvent(event)
+      })
+
+      const calendarOwnDayOffFallback = mappedCalendarEvents
+        .filter(isDayOffEvent)
+        .filter((event) => {
+          const ownerId = getDayOffOwnerId(event)
+
+          if (ownerId) {
+            return String(ownerId) === String(currentUserId)
+          }
+
+          return !isAdminOrOwner
+        })
+
+      const historyDayOffEvents =
+        historyResult.status === 'fulfilled'
+          ? getHistoryDayOffItems(historyResult.value.data)
+              .map((item) =>
+                normalizeOwnDayOffEvent({
+                  item,
+                  profile,
+                  user,
+                  safeBranch,
+                  fallbackBranchId: selectedCalendarBranchId || safeBranchId,
+                })
+              )
+              .filter(Boolean)
+          : []
+
+      const nextOwnDayOffEvents = mergeOwnDayOffEvents(
+        calendarOwnDayOffFallback,
+        historyDayOffEvents
+      )
+
+      setOwnDayOffEvents(nextOwnDayOffEvents)
+      setEvents([...calendarNonDayOffEvents, ...nextOwnDayOffEvents])
     } catch (error) {
       console.log(error)
       createAlert(
         'error',
         error.response?.data?.message || 'โหลดปฏิทินไม่สำเร็จ'
       )
+      setOwnDayOffEvents([])
     } finally {
       setLoading(false)
     }
@@ -368,8 +745,41 @@ function UserCalendarPage() {
   const selectedDateKey = moment(selectedDate).format('YYYY-MM-DD')
 
   const selectedDayEvents = useMemo(() => {
-    return events.filter((event) => event.date === selectedDateKey)
+    return events
+      .filter((event) => event.date === selectedDateKey)
+      .filter((event) => {
+        if (!isDayOffEvent(event)) return true
+
+        const status = getDayOffStatus(event)
+
+        return status !== 'REJECTED' && status !== 'CANCELED'
+      })
   }, [events, selectedDateKey])
+
+  const currentUserId = profile?.id || user?.id || null
+
+  const dayOffEvents = useMemo(() => {
+    return ownDayOffEvents
+      .filter((event) => {
+        const status = getDayOffStatus(event)
+
+        return status !== 'REJECTED' && status !== 'CANCELED'
+      })
+      .filter((event) => {
+        const ownerId = getDayOffOwnerId(event)
+
+        if (!ownerId || !currentUserId) return true
+
+        return String(ownerId) === String(currentUserId)
+      })
+      .sort((a, b) => moment(a.date).valueOf() - moment(b.date).valueOf())
+  }, [ownDayOffEvents, currentUserId])
+
+  const cancelableDayOffCount = useMemo(() => {
+    return dayOffEvents.filter((event) =>
+      isCancelableDayOffEvent(event, currentUserId, isAdminOrOwner)
+    ).length
+  }, [dayOffEvents, currentUserId, isAdminOrOwner])
 
   const branchName = isAdminOrOwner
     ? selectedBranchId === 'all'
@@ -534,6 +944,76 @@ function UserCalendarPage() {
     }
   }
 
+  const openCancelDayOffConfirm = (event) => {
+    if (!isCancelableDayOffEvent(event, currentUserId, isAdminOrOwner)) {
+      createAlert(
+        'error',
+        getCancelDayOffDisabledReason(event, currentUserId, isAdminOrOwner)
+      )
+      return
+    }
+
+    setCancelDayOffTarget(event)
+  }
+
+  const closeCancelDayOffConfirm = () => {
+    if (cancelDayOffLoading) return
+
+    setCancelDayOffTarget(null)
+  }
+
+  const cancelDayOff = async () => {
+    if (!cancelDayOffTarget || cancelDayOffLoading) return
+
+    const dayOffId = getDayOffId(cancelDayOffTarget)
+
+    if (!dayOffId) {
+      createAlert('error', 'ไม่พบ id ของคำขอลา')
+      return
+    }
+
+    try {
+      setCancelDayOffLoading(true)
+
+      await axios.delete(`${API_URL}/user/cancel-dayoff/${dayOffId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      createAlert('success', 'ยกเลิกวันลาสำเร็จ')
+
+      setEvents((prev) =>
+        prev.filter((item) => {
+          if (!isDayOffEvent(item)) return true
+
+          return String(getDayOffId(item)) !== String(dayOffId)
+        })
+      )
+
+      setOwnDayOffEvents((prev) =>
+        prev.filter((item) => {
+          return String(getDayOffId(item)) !== String(dayOffId)
+        })
+      )
+
+      setDayModalOpen(false)
+      setCancelDayOffTarget(null)
+
+      await fetchCalendar()
+    } catch (error) {
+      console.log(error)
+
+      createAlert(
+        'error',
+        error.response?.data?.message || 'ยกเลิกวันลาไม่สำเร็จ'
+      )
+    } finally {
+      setCancelDayOffLoading(false)
+    }
+  }
+
+
   return (
     <div className="min-h-dvh bg-[#F5F8FD] px-4 pb-40 pt-5 text-[#0F172A] lg:px-5 lg:pb-8 lg:pt-4 xl:px-6">
       <div className="mx-auto w-full max-w-md space-y-4 lg:max-w-5xl lg:space-y-3 xl:max-w-6xl">
@@ -602,22 +1082,33 @@ function UserCalendarPage() {
           </section>
         )}
 
-        <section className="pt-1 lg:rounded-[1.25rem] lg:bg-white lg:p-3 lg:shadow-[0_8px_22px_rgba(15,23,42,0.045)]">
-          <CalendarHeader
-            calendarDate={calendarDate}
-            onPrev={goPrevMonth}
-            onNext={goNextMonth}
-            onToday={goToday}
-          />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-3 xl:grid-cols-[minmax(0,1fr)_370px]">
+          <section className="pt-1 lg:max-h-[calc(100dvh-245px)] lg:overflow-y-auto lg:rounded-[1.25rem] lg:bg-white lg:p-3 lg:shadow-[0_8px_22px_rgba(15,23,42,0.045)]">
+            <CalendarHeader
+              calendarDate={calendarDate}
+              onPrev={goPrevMonth}
+              onNext={goNextMonth}
+              onToday={goToday}
+            />
 
-          {loading ? (
-            <div className="flex h-[360px] items-center justify-center lg:h-[340px]">
-              <Loader2 className="animate-spin text-blue-600" size={28} />
-            </div>
-          ) : (
-            <CalendarGrid days={calendarDays} onDateClick={selectDate} />
-          )}
-        </section>
+            {loading ? (
+              <div className="flex h-[360px] items-center justify-center lg:h-[340px]">
+                <Loader2 className="animate-spin text-blue-600" size={28} />
+              </div>
+            ) : (
+              <CalendarGrid days={calendarDays} onDateClick={selectDate} />
+            )}
+          </section>
+
+          <DayOffPanel
+            events={dayOffEvents}
+            loading={loading}
+            currentUserId={currentUserId}
+            isAdminOrOwner={isAdminOrOwner}
+            cancelableCount={cancelableDayOffCount}
+            onCancelDayOff={openCancelDayOffConfirm}
+          />
+        </div>
       </div>
 
       {dayModalOpen && (
@@ -641,6 +1132,15 @@ function UserCalendarPage() {
           branchName={noteBranchName}
           onClose={closeNoteModal}
           onSubmit={submitNote}
+        />
+      )}
+
+      {cancelDayOffTarget && (
+        <CancelDayOffConfirmModal
+          event={cancelDayOffTarget}
+          loading={cancelDayOffLoading}
+          onClose={closeCancelDayOffConfirm}
+          onConfirm={cancelDayOff}
         />
       )}
     </div>
@@ -809,6 +1309,215 @@ function EventMiniBadge({ event }) {
     </span>
   )
 }
+
+function DayOffPanel({
+  events,
+  loading,
+  currentUserId,
+  isAdminOrOwner,
+  cancelableCount,
+  onCancelDayOff,
+}) {
+  return (
+    <section className="rounded-[1.45rem] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.06)] lg:sticky lg:top-4 lg:max-h-[calc(100dvh-245px)] lg:overflow-hidden lg:rounded-[1.25rem] lg:p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3 lg:gap-2.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-orange-500 lg:h-9 lg:w-9 lg:rounded-xl">
+            <Umbrella size={20} className="lg:h-4 lg:w-4" />
+          </div>
+
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-black text-slate-950 lg:text-sm">
+              วันลาของฉัน
+            </h2>
+
+            <p className="mt-0.5 truncate text-xs font-bold text-slate-400 lg:text-[10px]">
+              {events.length} รายการ · ยกเลิกได้ {cancelableCount} รายการ
+            </p>
+          </div>
+        </div>
+
+        <span className="shrink-0 rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-black text-orange-500 lg:text-[10px]">
+          {events.length}
+        </span>
+      </div>
+
+      {loading ? (
+        <div className="mt-4 flex h-32 items-center justify-center rounded-2xl bg-[#F5F8FD] lg:h-28 lg:rounded-xl">
+          <Loader2 className="animate-spin text-blue-600" size={24} />
+        </div>
+      ) : events.length === 0 ? (
+        <div className="mt-4 rounded-2xl bg-[#F5F8FD] px-4 py-8 text-center lg:mt-3 lg:rounded-xl lg:px-3 lg:py-6">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-300 lg:h-10 lg:w-10">
+            <Umbrella size={22} className="lg:h-5 lg:w-5" />
+          </div>
+
+          <p className="text-sm font-black text-slate-700 lg:text-xs">
+            ยังไม่มีวันลาในเดือนนี้
+          </p>
+
+          <p className="mt-1 text-xs font-semibold text-slate-400 lg:text-[10px]">
+            เมื่อคุณมีคำขอลา รายการจะแสดงตรงนี้
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 max-h-[360px] space-y-2 overflow-y-auto pr-1 lg:mt-3 lg:max-h-[calc(100dvh-360px)]">
+          {events.map((event) => (
+            <DayOffListItem
+              key={event.id}
+              event={event}
+              currentUserId={currentUserId}
+              isAdminOrOwner={isAdminOrOwner}
+              onCancelDayOff={onCancelDayOff}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function DayOffListItem({
+  event,
+  currentUserId,
+  isAdminOrOwner,
+  onCancelDayOff,
+}) {
+  const status = getDayOffStatus(event)
+  const statusConfig = getDayOffStatusConfig(status)
+  const canCancel = isCancelableDayOffEvent(
+    event,
+    currentUserId,
+    isAdminOrOwner
+  )
+  const disabledReason = getCancelDayOffDisabledReason(
+    event,
+    currentUserId,
+    isAdminOrOwner
+  )
+  const employeeName = event.raw?.employeeName || 'ฉัน'
+
+  return (
+    <div className="rounded-[1.2rem] border border-orange-100 bg-orange-50/65 p-3 lg:rounded-xl lg:p-2.5">
+      <div className="flex items-start gap-2.5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-orange-500 lg:h-8 lg:w-8 lg:rounded-xl">
+          <Umbrella size={18} className="lg:h-4 lg:w-4" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-slate-950 lg:text-xs">
+                {employeeName}
+              </p>
+
+              <p className="mt-0.5 truncate text-xs font-bold text-slate-500 lg:text-[10px]">
+                {formatThaiWeekDay(event.date)} · {formatThaiFullDate(event.date)}
+              </p>
+            </div>
+
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${statusConfig.className}`}
+            >
+              {statusConfig.label}
+            </span>
+          </div>
+
+          {event.raw?.reason && (
+            <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-slate-500 lg:text-[10px] lg:leading-4">
+              {event.raw.reason}
+            </p>
+          )}
+
+          <div className="mt-3 flex items-center justify-between gap-2 lg:mt-2">
+            <p className="truncate text-[10px] font-bold text-slate-400">
+              {event.branchName || 'สาขา'}
+            </p>
+
+            {canCancel ? (
+              <button
+                type="button"
+                onClick={() => onCancelDayOff(event)}
+                className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-red-50 px-3 text-[11px] font-black text-red-500 active:scale-95 lg:h-7 lg:px-2.5 lg:text-[10px]"
+              >
+                <Trash2 size={13} strokeWidth={2.7} />
+                ยกเลิก
+              </button>
+            ) : (
+              <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-slate-400" title={disabledReason}>
+                ลบไม่ได้
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CancelDayOffConfirmModal({ event, loading, onClose, onConfirm }) {
+  return (
+    <div
+      onClick={loading ? undefined : onClose}
+      className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-[1.7rem] bg-white p-5 shadow-2xl lg:rounded-[1.35rem] lg:p-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-500 lg:h-10 lg:w-10 lg:rounded-xl">
+            <AlertCircle size={23} strokeWidth={2.8} className="lg:h-5 lg:w-5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-black text-slate-950 lg:text-base">
+              ยกเลิกวันลา?
+            </h2>
+
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-500 lg:text-xs lg:leading-5">
+              ต้องการยกเลิกวันลาวันที่{' '}
+              <span className="font-black text-slate-700">
+                {formatThaiFullDate(event.date)}
+              </span>{' '}
+              ใช่ไหม
+            </p>
+
+            <p className="mt-2 rounded-2xl bg-orange-50 px-3 py-2 text-xs font-bold leading-5 text-orange-600 lg:rounded-xl lg:text-[10px] lg:leading-4">
+              ระบบจะคืนวันลาคงเหลือตามเงื่อนไขของเดือนที่ยกเลิกโดยอัตโนมัติ
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2 lg:mt-4">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onClose}
+            className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-500 active:scale-[0.98] disabled:opacity-60 lg:h-10 lg:rounded-xl lg:text-xs"
+          >
+            ไม่ยกเลิก
+          </button>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={onConfirm}
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-black text-white active:scale-[0.98] disabled:opacity-60 lg:h-10 lg:rounded-xl lg:text-xs"
+          >
+            {loading ? (
+              <Loader2 size={17} className="animate-spin" />
+            ) : (
+              <Trash2 size={16} strokeWidth={2.8} />
+            )}
+            {loading ? 'กำลังยกเลิก...' : 'ยืนยัน'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 function DayDetailModal({
   selectedDate,

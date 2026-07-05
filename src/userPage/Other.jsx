@@ -30,10 +30,13 @@ function Other() {
   )
 
   const [profile, setProfile] = useState(user || {})
+  const [profileLoading, setProfileLoading] = useState(Boolean(token))
 
   useEffect(() => {
     if (token) {
       getProfile()
+    } else {
+      setProfileLoading(false)
     }
   }, [token])
 
@@ -53,6 +56,8 @@ function Other() {
 
   const getProfile = async () => {
     try {
+      setProfileLoading(true)
+
       const res = await axios.get(`${API_URL}/user/myProfile`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -71,6 +76,8 @@ function Other() {
       ) {
         clearLocalAuth()
       }
+    } finally {
+      setProfileLoading(false)
     }
   }
 
@@ -111,16 +118,17 @@ function Other() {
     'ผู้ใช้งาน'
 
   const role = String(profile?.role || user?.role || '').toUpperCase()
+  const verifiedRole = String(profileLoading ? '' : profile?.role || '').toUpperCase()
 
   const metaText = [safePosition?.name || role, safeBranch?.name]
     .filter(Boolean)
     .join(' · ')
 
-  const canAccessAdmin = role === 'ADMIN' || role === 'OWNER'
+  const canAccessAdmin = verifiedRole === 'ADMIN' || verifiedRole === 'OWNER'
   const canManageBranch = canAccessAdmin
   const canManageEmployees = canAccessAdmin
   const canApproveRequests = canAccessAdmin
-  const canViewServerLog = role === 'OWNER'
+  const canViewServerLog = verifiedRole === 'OWNER'
 
   const managementMenus = [
     {
@@ -147,7 +155,7 @@ function Other() {
     {
       show: canViewServerLog,
       title: 'Server Log',
-      subtitle: 'ดูบันทึกการทำงานของระบบ',
+      subtitle: 'ดูบันทึกระบบ',
       path: '/admin/audit-logs',
       icon: ScrollText,
     },
