@@ -28,6 +28,41 @@ const DEFAULT_NOTE_FORM = {
   note: '',
 }
 
+const ALERT_LAYER_STYLE = `
+  .swal2-container,
+  .Toastify__toast-container,
+  [data-rht-toaster],
+  [data-sonner-toaster],
+  [data-radix-toast-viewport] {
+    z-index: 2147483647 !important;
+  }
+`
+
+const raiseAlertLayer = () => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+  window.requestAnimationFrame(() => {
+    const selectors = [
+      '.swal2-container',
+      '.Toastify__toast-container',
+      '[data-rht-toaster]',
+      '[data-sonner-toaster]',
+      '[data-radix-toast-viewport]',
+    ]
+
+    selectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((element) => {
+        element.style.zIndex = '2147483647'
+      })
+    })
+  })
+}
+
+const showCalendarAlert = (type, message) => {
+  createAlert(type, message)
+  raiseAlertLayer()
+}
+
 const WEEK_DAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
 const THAI_MONTHS = [
@@ -508,7 +543,7 @@ function UserCalendarPage() {
     } catch (error) {
       console.log(error)
 
-      createAlert(
+      showCalendarAlert(
         'error',
         error.response?.data?.message || 'โหลดรายชื่อสาขาไม่สำเร็จ'
       )
@@ -585,7 +620,7 @@ function UserCalendarPage() {
           } else if (item.type === 'note') {
             title = item.title || 'Note'
           } else {
-            title = 'วันลาของฉัน'
+            title = `${item.employeeName || item.name || 'พนักงาน'} ลางาน`
           }
 
           return {
@@ -625,20 +660,14 @@ function UserCalendarPage() {
           }
         })
         .filter(Boolean)
-        .filter((event) => {
-          if (!isDayOffEvent(event)) return true
 
+      const calendarOwnDayOffFallback = mappedCalendarEvents
+        .filter(isDayOffEvent)
+        .filter((event) => {
           const status = getDayOffStatus(event)
 
           return status !== 'REJECTED' && status !== 'CANCELED'
         })
-
-      const calendarNonDayOffEvents = mappedCalendarEvents.filter((event) => {
-        return !isDayOffEvent(event)
-      })
-
-      const calendarOwnDayOffFallback = mappedCalendarEvents
-        .filter(isDayOffEvent)
         .filter((event) => {
           const ownerId = getDayOffOwnerId(event)
 
@@ -670,10 +699,10 @@ function UserCalendarPage() {
       )
 
       setOwnDayOffEvents(nextOwnDayOffEvents)
-      setEvents([...calendarNonDayOffEvents, ...nextOwnDayOffEvents])
+      setEvents(mappedCalendarEvents)
     } catch (error) {
       console.log(error)
-      createAlert(
+      showCalendarAlert(
         'error',
         error.response?.data?.message || 'โหลดปฏิทินไม่สำเร็จ'
       )
@@ -745,15 +774,7 @@ function UserCalendarPage() {
   const selectedDateKey = moment(selectedDate).format('YYYY-MM-DD')
 
   const selectedDayEvents = useMemo(() => {
-    return events
-      .filter((event) => event.date === selectedDateKey)
-      .filter((event) => {
-        if (!isDayOffEvent(event)) return true
-
-        const status = getDayOffStatus(event)
-
-        return status !== 'REJECTED' && status !== 'CANCELED'
-      })
+    return events.filter((event) => event.date === selectedDateKey)
   }, [events, selectedDateKey])
 
   const currentUserId = profile?.id || user?.id || null
@@ -828,7 +849,7 @@ function UserCalendarPage() {
 
   const openAddNoteModal = (date = selectedDate) => {
     if (!canCreateNote) {
-      createAlert(
+      showCalendarAlert(
         'error',
         isAdminOrOwner
           ? 'กรุณาเลือกสาขาก่อนเพิ่ม Note'
@@ -855,12 +876,12 @@ function UserCalendarPage() {
     e.preventDefault()
 
     if (!noteForm.date || !noteForm.title.trim()) {
-      createAlert('error', 'กรุณากรอกวันที่และหัวข้อ')
+      showCalendarAlert('error', 'กรุณากรอกวันที่และหัวข้อ')
       return
     }
 
     if (!canCreateNote) {
-      createAlert('error', 'ไม่สามารถเพิ่ม Note ได้')
+      showCalendarAlert('error', 'ไม่สามารถเพิ่ม Note ได้')
       return
     }
 
@@ -880,13 +901,13 @@ function UserCalendarPage() {
         },
       })
 
-      createAlert('success', 'เพิ่ม Note สำเร็จ')
       closeNoteModal()
+      showCalendarAlert('success', 'เพิ่ม Note สำเร็จ')
       await fetchCalendar()
     } catch (error) {
       console.log(error)
 
-      createAlert(
+      showCalendarAlert(
         'error',
         error.response?.data?.message || 'บันทึก Note ไม่สำเร็จ'
       )
@@ -897,19 +918,19 @@ function UserCalendarPage() {
 
   const deleteNote = async (event) => {
     if (!canDeleteNote) {
-      createAlert('error', 'เฉพาะ Admin หรือ Owner เท่านั้นที่ลบ Note ได้')
+      showCalendarAlert('error', 'เฉพาะ Admin หรือ Owner เท่านั้นที่ลบ Note ได้')
       return
     }
 
     if (!event || event.type !== 'note') {
-      createAlert('error', 'ลบได้เฉพาะ Note เท่านั้น')
+      showCalendarAlert('error', 'ลบได้เฉพาะ Note เท่านั้น')
       return
     }
 
     const noteId = event.eventId || event.raw?.id
 
     if (!noteId) {
-      createAlert('error', 'ไม่พบ id ของ Note')
+      showCalendarAlert('error', 'ไม่พบ id ของ Note')
       return
     }
 
@@ -922,7 +943,7 @@ function UserCalendarPage() {
         },
       })
 
-      createAlert('success', 'ลบ Note สำเร็จ')
+      showCalendarAlert('success', 'ลบ Note สำเร็จ')
 
       setEvents((prev) =>
         prev.filter((item) => {
@@ -935,7 +956,7 @@ function UserCalendarPage() {
     } catch (error) {
       console.log(error)
 
-      createAlert(
+      showCalendarAlert(
         'error',
         error.response?.data?.message || 'ลบ Note ไม่สำเร็จ'
       )
@@ -946,7 +967,7 @@ function UserCalendarPage() {
 
   const openCancelDayOffConfirm = (event) => {
     if (!isCancelableDayOffEvent(event, currentUserId, isAdminOrOwner)) {
-      createAlert(
+      showCalendarAlert(
         'error',
         getCancelDayOffDisabledReason(event, currentUserId, isAdminOrOwner)
       )
@@ -968,7 +989,7 @@ function UserCalendarPage() {
     const dayOffId = getDayOffId(cancelDayOffTarget)
 
     if (!dayOffId) {
-      createAlert('error', 'ไม่พบ id ของคำขอลา')
+      showCalendarAlert('error', 'ไม่พบ id ของคำขอลา')
       return
     }
 
@@ -981,7 +1002,7 @@ function UserCalendarPage() {
         },
       })
 
-      createAlert('success', 'ยกเลิกวันลาสำเร็จ')
+      showCalendarAlert('success', 'ยกเลิกวันลาสำเร็จ')
 
       setEvents((prev) =>
         prev.filter((item) => {
@@ -1004,7 +1025,7 @@ function UserCalendarPage() {
     } catch (error) {
       console.log(error)
 
-      createAlert(
+      showCalendarAlert(
         'error',
         error.response?.data?.message || 'ยกเลิกวันลาไม่สำเร็จ'
       )
@@ -1016,6 +1037,8 @@ function UserCalendarPage() {
 
   return (
     <div className="min-h-dvh bg-[#F5F8FD] px-4 pb-40 pt-5 text-[#0F172A] lg:px-5 lg:pb-8 lg:pt-4 xl:px-6">
+      <style>{ALERT_LAYER_STYLE}</style>
+
       <div className="mx-auto w-full max-w-md space-y-4 lg:max-w-5xl lg:space-y-3 xl:max-w-6xl">
         <header className="flex items-center justify-between">
           <div>

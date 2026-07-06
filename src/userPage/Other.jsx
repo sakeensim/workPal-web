@@ -117,8 +117,13 @@ function Other() {
     user?.firstname ||
     'ผู้ใช้งาน'
 
-  const role = String(profile?.role || user?.role || '').toUpperCase()
-  const verifiedRole = String(profileLoading ? '' : profile?.role || '').toUpperCase()
+  const profileRole = String(profile?.role || '').toUpperCase()
+  const storedRole = String(user?.role || '').toUpperCase()
+  const role = profileRole || storedRole
+
+  const verifiedRole = profileLoading
+    ? storedRole
+    : profileRole || storedRole
 
   const metaText = [safePosition?.name || role, safeBranch?.name]
     .filter(Boolean)
@@ -129,6 +134,10 @@ function Other() {
   const canManageEmployees = canAccessAdmin
   const canApproveRequests = canAccessAdmin
   const canViewServerLog = verifiedRole === 'OWNER'
+
+  const goToMenu = (path) => {
+    navigate(path)
+  }
 
   const managementMenus = [
     {
@@ -155,7 +164,7 @@ function Other() {
     {
       show: canViewServerLog,
       title: 'Server Log',
-      subtitle: 'ดูบันทึกระบบ',
+      subtitle: 'เฉพาะ Owner เท่านั้นที่ดูบันทึกระบบได้',
       path: '/admin/audit-logs',
       icon: ScrollText,
     },
@@ -291,7 +300,7 @@ function Other() {
 
                       <button
                         type="button"
-                        onClick={() => navigate(item.path)}
+                        onClick={() => goToMenu(item.path)}
                         className="flex w-full items-center gap-3 p-3.5 text-left active:bg-blue-50 lg:min-h-[94px] lg:rounded-[1.25rem] lg:bg-white lg:p-4 lg:shadow-[0_10px_24px_rgba(15,23,42,0.055)] lg:transition lg:hover:-translate-y-0.5 lg:hover:shadow-[0_14px_30px_rgba(15,23,42,0.08)]"
                       >
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 lg:h-12 lg:w-12 lg:rounded-2xl">
