@@ -56,7 +56,16 @@ function UserManagement() {
     positionId: '',
   })
 
-  const isOwner = String(user?.role || '').toUpperCase() === 'OWNER'
+  const role = String(user?.role || '').toUpperCase()
+  const isOwner = role === 'OWNER'
+  const isAdmin = role === 'ADMIN'
+  const canAccessUserManagement = isOwner || isAdmin
+  const canManageEmployees = isOwner
+
+  const denyManageAction = () => {
+    createAlert('error', 'เฉพาะ OWNER เท่านั้นที่แก้ไขข้อมูลพนักงานได้')
+  }
+
   const resetNewUser = () => {
     setNewUser({
       firstname: '',
@@ -83,16 +92,16 @@ function UserManagement() {
   useEffect(() => {
     if (!user) return
 
-    if (!isOwner) {
+    if (!canAccessUserManagement) {
       navigate('/user/other')
     }
-  }, [user, isOwner, navigate])
+  }, [user, canAccessUserManagement, navigate])
 
   useEffect(() => {
-    if (!token || !isOwner) return
+    if (!token || !canAccessUserManagement) return
 
     fetchAllData()
-  }, [token, isOwner, selectedMonth])
+  }, [token, canAccessUserManagement, selectedMonth])
 
   const fetchAllData = async () => {
     try {
@@ -234,6 +243,11 @@ function UserManagement() {
   const handleCreateUser = async (e) => {
     e.preventDefault()
 
+    if (!canManageEmployees) {
+      denyManageAction()
+      return
+    }
+
     if (!newUser.firstname.trim() || !newUser.lastname.trim() || !newUser.email.trim()) {
       createAlert('error', 'กรุณากรอกชื่อ นามสกุล และอีเมล')
       return
@@ -298,6 +312,11 @@ function UserManagement() {
   }
 
   const updateSalary = async (id, baseSalary) => {
+    if (!canManageEmployees) {
+      denyManageAction()
+      return
+    }
+
     try {
       await axios.patch(
         `${API_URL}/user/update-salary/${id}`,
@@ -323,6 +342,11 @@ function UserManagement() {
   }
 
   const updateUserBranch = async (id, branchId) => {
+    if (!canManageEmployees) {
+      denyManageAction()
+      return
+    }
+
     try {
       await axios.patch(
         `${API_URL}/admin/user-branch/${id}`,
@@ -348,6 +372,11 @@ function UserManagement() {
   }
 
   const updateUserPosition = async (id, positionId) => {
+    if (!canManageEmployees) {
+      denyManageAction()
+      return
+    }
+
     try {
       await axios.patch(
         `${API_URL}/admin/user-position/${id}`,
@@ -373,6 +402,11 @@ function UserManagement() {
   }
 
   const handleRoleChange = async (id, role) => {
+    if (!canManageEmployees) {
+      denyManageAction()
+      return
+    }
+
     try {
       await axios.post(
         `${API_URL}/user/update-role`,
@@ -396,6 +430,11 @@ function UserManagement() {
   }
 
   const handleDelete = async (id) => {
+    if (!canManageEmployees) {
+      denyManageAction()
+      return
+    }
+
     try {
       await axios.delete(`${API_URL}/user/delete/${id}`, {
         headers: {
@@ -419,13 +458,13 @@ function UserManagement() {
     }
   }
 
-  if (user && !isOwner) {
+  if (user && !canAccessUserManagement) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-[#F5F8FD] px-4 text-center">
         <div>
           <p className="text-lg font-black text-slate-950">ไม่มีสิทธิ์เข้าถึง</p>
           <p className="mt-1 text-sm font-semibold text-slate-400">
-            เฉพาะ OWNER เท่านั้นที่จัดการพนักงานได้
+            เฉพาะ ADMIN หรือ OWNER เท่านั้นที่เข้าหน้านี้ได้
           </p>
         </div>
       </div>
@@ -450,7 +489,7 @@ function UserManagement() {
                 การจัดการพนักงาน
               </h1>
               <p className="hidden text-xs font-semibold text-slate-400 sm:block">
-                จัดการข้อมูลพนักงานและดูสรุปรายเดือน
+                Admin ดูข้อมูลพนักงานได้ ส่วน Owner แก้ไขข้อมูลได้
               </p>
             </div>
           </header>
@@ -508,14 +547,16 @@ function UserManagement() {
                   ))}
                 </SelectBox>
 
-                <button
-                  type="button"
-                  onClick={() => setIsAddOpen(true)}
-                  className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] active:scale-95"
-                >
-                  <Plus size={18} strokeWidth={3} />
-                  เพิ่ม
-                </button>
+                {canManageEmployees && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddOpen(true)}
+                    className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] active:scale-95"
+                  >
+                    <Plus size={18} strokeWidth={3} />
+                    เพิ่ม
+                  </button>
+                )}
               </div>
             </div>
           </section>
@@ -675,7 +716,7 @@ function UserManagement() {
         />
       )}
 
-      {isAddOpen && (
+      {isAddOpen && canManageEmployees && (
         <AddEmployeeSheet
           newUser={newUser}
           setNewUser={setNewUser}
