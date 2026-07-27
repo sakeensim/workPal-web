@@ -1639,6 +1639,49 @@ function AddEmployeeSheet({
     </div>
   )
 }
+function getWorkDayKey(value) {
+  if (!value) return null
+
+  const text = String(value)
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return text.slice(0, 10)
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Bangkok',
+  })
+}
+
+function getFinalAttendanceStatus(log) {
+  const baseStatus = normalizeAttendanceStatus(log?.status)
+  const timeStatus = normalizeAttendanceStatus(log?.timeStatus)
+
+  if (
+    baseStatus === 'PRESENT' &&
+    ['ACTIVE', 'EXPIRED', 'CANCELED'].includes(timeStatus)
+  ) {
+    return timeStatus
+  }
+
+  return baseStatus
+}
+
+function isCountableWorkingLog(log) {
+  const status = getFinalAttendanceStatus(log)
+
+  if (!log?.checkIn) return false
+  if (status === 'ABSENT') return false
+  if (status === 'CANCELED') return false
+
+  return status === 'PRESENT' || status === 'ACTIVE' || status === 'EXPIRED'
+}
+
+
 function getEmployeeStats(employee) {
   const attendanceLogs = employee.attendanceLogs || []
   const timeLogs = employee.timetracking || employee.timeTrackings || []
@@ -1676,24 +1719,17 @@ function getEmployeeStats(employee) {
           null,
       }))
 
-    const normalizedNormalLogs = normalLogs.map((log) => {
-        const baseStatus = normalizeAttendanceStatus(log.status)
-        const timeStatus = normalizeAttendanceStatus(log.timeStatus)
+  const normalizedNormalLogs = normalLogs.map((log) => {
+    const status = getFinalAttendanceStatus(log)
 
-        const status =
-            baseStatus === 'PRESENT' &&
-            ['ACTIVE', 'EXPIRED', 'CANCELED'].includes(timeStatus)
-            ? timeStatus
-            : baseStatus
-
-        return {
-            ...log,
-            type: 'WORK',
-            status,
-            date: log.date || log.checkIn || log.createdAt,
-            sortDate: log.checkOut || log.checkIn || log.date || log.createdAt,
-        }
-    })
+    return {
+      ...log,
+      type: 'WORK',
+      status,
+      date: log.date || log.checkIn || log.createdAt,
+      sortDate: log.checkOut || log.checkIn || log.date || log.createdAt,
+    }
+  })
 
   const overtimeLogs = rawOvertimeLogs.map((ot) => {
     const status = normalizeOTStatus(ot.status)
@@ -1732,12 +1768,19 @@ function getEmployeeStats(employee) {
       getDateTime(b.sortDate || b.date) - getDateTime(a.sortDate || a.date)
   )
 
-  const workingDays =
-    getNumberOrNull(employee.workingDays) ??
-    normalizedNormalLogs.filter((log) => {
-      const status = normalizeAttendanceStatus(log.status)
-      return status === 'PRESENT' || status === 'ACTIVE' || status === 'EXPIRED'
-    }).length
+  const workingDayKeys = new Set()
+
+  normalizedNormalLogs.forEach((log) => {
+    if (!isCountableWorkingLog(log)) return
+
+    const dateKey = getWorkDayKey(log.date || log.checkIn || log.createdAt)
+
+    if (dateKey) {
+      workingDayKeys.add(dateKey)
+    }
+  })
+
+  const workingDays = workingDayKeys.size
 
   const lateDays =
     getNumberOrNull(employee.lateDays) ??
@@ -2204,7 +2247,7 @@ function getAttendanceStatusLabel(status) {
   if (value === 'ABSENT') return 'ขาดงาน'
   if (value === 'DAY_OFF') return 'วันลา'
   if (value === 'HOLIDAY') return 'วันหยุดร้าน'
-  if (value === 'EXPIRED') return 'หมดเวลา'
+  if (value === 'EXPIRED') return 'หมดเวลาเช็กเอาท์'
   if (value === 'CANCELED') return 'ยกเลิก'
 
   return value || '-'
