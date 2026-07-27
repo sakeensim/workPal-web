@@ -1736,7 +1736,7 @@ function getEmployeeStats(employee) {
     getNumberOrNull(employee.workingDays) ??
     normalizedNormalLogs.filter((log) => {
       const status = normalizeAttendanceStatus(log.status)
-      return status === 'PRESENT' || status === 'ACTIVE'
+      return status === 'PRESENT' || status === 'ACTIVE' || status === 'EXPIRED'
     }).length
 
   const lateDays =
